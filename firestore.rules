@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId}/designs/{designId}
+    // Document ID: the design's client UUID (same as the `id` field)
+    // Fields:
+    //   - id: string (required, immutable, 8-128 chars, must equal document ID)
+    //   - ownerUid: string (required, immutable, must equal {userId} and auth.uid)
+    //   - name: string (required, 1-200 chars)
+    //   - width: number (required, 1-20000)
+    //   - height: number (required, 1-20000)
+    //   - pages: list (required, 1-50 maps). Each page:
+    //       id: string, background: string, objects: list (0-250 maps),
+    //       role?: "front" | "back" | "left-shoulder" | "right-shoulder"
+    //     Nested canvas object strings are size-capped at the page/object
+    //     count level; Firestore rules cannot iterate variable-length lists.
+    //   - updatedAt: number (required, millisecond epoch, 1 .. 4102444800000)
+    //   - shirt: map (optional) { color: string <= 32, neck: "crew" | "v" }
+    //
+    // There is no users profile document. Designs do not store email or
+    // other PII. Uploaded image blobs stay in IndexedDB on the device.
+    //
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function validCanvasSize(field) {
+      return request.resource.data[field] is number &&
+        request.resource.data[field] >= 1 &&
+        request.resource.data[field] <= 20000;
+    }
+
+    function isValidShirt(data) {
+      return !('shirt' in data) || (
+        data.shirt is map &&
+        data.shirt.keys().hasOnly(['color', 'neck']) &&
+        data.shirt.color is string &&
+        data.shirt.color.size() >= 1 &&
+        data.shirt.color.size() <= 32 &&
+        data.shirt.neck in ['crew', 'v']
+      );
+    }
+
+    function isValidPages(pages) {
+      return pages is list &&
+        pages.size() >= 1 &&
+        pages.size() <= 50;
+    }
+
+    function isValidDesign(data, userId, designId) {
+      return hasRequiredFields(['id', 'ownerUid', 'name', 'width', 'height', 'pages', 'updatedAt']) &&
+        hasOnlyAllowedFields(['id', 'ownerUid', 'name', 'width', 'height', 'pages', 'updatedAt', 'shirt']) &&
+        data.id is string &&
+        data.id == designId &&
+        data.id.size() >= 8 &&
+        data.id.size() <= 128 &&
+        data.ownerUid is string &&
+        data.ownerUid == userId &&
+        data.ownerUid == request.auth.uid &&
+        validStringLength('name', 1, 200) &&
+        validCanvasSize('width') &&
+        validCanvasSize('height') &&
+        isValidPages(data.pages) &&
+        data.updatedAt is number &&
+        data.updatedAt > 0 &&
+        data.updatedAt < 4102444800000 &&
+        isValidShirt(data);
+    }
+
+    match /users/{userId}/designs/{designId} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+        isValidDesign(request.resource.data, userId, designId);
+
+      allow update: if isOwner(userId) &&
+        isValidDesign(request.resource.data, userId, designId) &&
+        areImmutableFieldsUnchanged(['id', 'ownerUid']);
+
+      allow delete: if isOwner(userId);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

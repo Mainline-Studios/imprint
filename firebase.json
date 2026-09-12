@@ -1,0 +1,24 @@
+{
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Imprint",
+        "supportEmail": "boehmlaird@gmail.com",
+        "authorizedRedirectUris": [
+          "https://bdawgsawesome1-mainlinestudiosofficial.github.io"
+        ]
+      }
+    },
+    "authorizedDomains": [
+      "localhost",
+      "bdawgsawesome1-mainlinestudiosofficial.github.io"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json",
+    "edition": "enterprise",
+    "database": "imprint",
+    "location": "nam5"
+  }
+}
