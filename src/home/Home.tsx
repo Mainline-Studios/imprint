@@ -171,13 +171,13 @@ export function Home() {
         <header className={guest ? "home-hero home-hero-discover" : "home-hero"}>
           {guest && <p className="home-hero-kicker">Logged out · Discover</p>}
           <h1 className={user ? "home-hero-title home-hero-hello" : "home-hero-title"}>
-            {user ? `Hello, ${accountFirstName(user)}` : "Leave a mark."}
+            {user ? `Hello, ${accountFirstName(user)}` : "Design Trusted by Pros."}
           </h1>
           {user && <p className="home-hero-mark">Leave a mark.</p>}
           <p className="home-hero-sub">
             {user
               ? "Paper, type, and work that follows your Google account."
-              : "Work from real shops — bakeries, clinics, studios. Remix one, or start blank. Sign in when you want it to follow you."}
+              : "Posters, Websites, imprint has it all."}
           </p>
           {guest && (
             <div className="home-hero-actions">
