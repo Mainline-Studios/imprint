@@ -1,4 +1,5 @@
 import {
+  createUserWithEmailAndPassword,
   isSignInWithEmailLink,
   sendEmailVerification,
   sendSignInLinkToEmail,
@@ -9,6 +10,16 @@ import { auth } from "../firebase/app";
 
 const EMAIL_KEY = "imprint-verify-email";
 
+function authCode(err: unknown): string {
+  return typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
+}
+
+function randomPassword(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export function profileContinueUrl(): string {
   const base = `${window.location.origin}${import.meta.env.BASE_URL}`;
   const trimmed = base.endsWith("/") ? base : `${base}/`;
@@ -18,11 +29,25 @@ export function profileContinueUrl(): string {
 export async function sendVerifyLink(email: string): Promise<void> {
   const next = email.trim();
   if (!next || !next.includes("@")) throw new Error("Enter a valid email.");
-  await sendSignInLinkToEmail(auth, next, {
-    url: profileContinueUrl(),
-    handleCodeInApp: true,
-  });
-  localStorage.setItem(EMAIL_KEY, next);
+  try {
+    await sendSignInLinkToEmail(auth, next, {
+      url: profileContinueUrl(),
+      handleCodeInApp: true,
+    });
+    localStorage.setItem(EMAIL_KEY, next);
+    return;
+  } catch (err) {
+    if (authCode(err) !== "auth/operation-not-allowed") throw err;
+  }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, next, randomPassword());
+    await sendEmailVerification(cred.user, { url: profileContinueUrl() });
+  } catch (err) {
+    if (authCode(err) === "auth/email-already-in-use") {
+      throw new Error("That email already has an account. Sign in with Google to expand storage.");
+    }
+    throw err;
+  }
 }
 
 export async function sendVerifyToUser(user: User): Promise<void> {

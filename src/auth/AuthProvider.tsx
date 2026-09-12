@@ -18,14 +18,20 @@ export type AuthSnap = {
 
 const AuthContext = createContext<AuthSnap | null>(null);
 
-function messageFor(err: unknown): string {
+function messageFor(err: unknown, via: "google" | "email" | "any" = "any"): string {
   const code = typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
   if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return "";
   if (code === "auth/unauthorized-domain") {
     return "This site isn’t allowed to sign in yet. Add it under Firebase Authentication → Settings → Authorized domains (hostname only, like localhost).";
   }
   if (code === "auth/operation-not-allowed") {
-    return "That sign-in method isn’t enabled yet. Turn on Google and Email/Password (with Email link) in the Firebase console.";
+    if (via === "google") {
+      return "Google sign-in is not enabled yet. Turn it on in the Firebase console (Authentication → Sign-in method → Google).";
+    }
+    if (via === "email") {
+      return "Email verification isn’t enabled yet. Sign in with Google, or turn on Email/Password and Email link in the Firebase console.";
+    }
+    return "That sign-in method isn’t enabled yet. Sign in with Google, or turn on Email/Password and Email link in the Firebase console.";
   }
   if (code === "auth/invalid-action-code" || code === "auth/expired-action-code") {
     return "That verification link is expired. Send a new one from Profile.";
@@ -54,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           history.replaceState(null, "", `${next.pathname}${next.search}${next.hash}`);
         }
       } catch (err) {
-        const msg = messageFor(err);
+        const msg = messageFor(err, "email");
         if (msg) setError(msg);
       }
     })();
@@ -80,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await signInWithPopup(auth, googleProvider);
         } catch (err) {
-          const msg = messageFor(err);
+          const msg = messageFor(err, "google");
           if (msg) setError(msg);
         }
       },
@@ -97,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           await sendVerifyLink(email || user?.email || "");
         } catch (err) {
-          const msg = messageFor(err);
+          const msg = messageFor(err, "email");
           if (msg) setError(msg);
           throw err;
         }
