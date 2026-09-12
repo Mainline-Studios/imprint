@@ -166,7 +166,7 @@ export function Home() {
           />
         ) : (
           <>
-        <header className={user ? "home-hero home-hero-signed" : "home-hero"}>
+        <header className="home-hero">
           <h1 className={user ? "home-hero-title home-hero-hello" : "home-hero-title"}>
             {user ? `Hello, ${accountFirstName(user)}` : "Leave a mark."}
           </h1>
