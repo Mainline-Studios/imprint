@@ -31,6 +31,7 @@ export function Keyboard() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const state = useDocumentStore.getState();
+      if (state.presenting) return;
       if (e.code === "Space" && !isTypingTarget(e.target) && !state.editingTextId) {
         const one = selectedObjects(state)[0];
         const typingObject = one?.type === "text" || one?.type === "button";
@@ -97,6 +98,18 @@ export function Keyboard() {
       }
       if (meta && e.key.toLowerCase() === "s") {
         e.preventDefault();
+        return;
+      }
+      if (meta && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        if (e.shiftKey) state.ungroupSelected();
+        else state.groupSelected();
+        return;
+      }
+      if (meta && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        if (selected.length > 0 && selected.every((o) => o.locked)) state.unlockSelected();
+        else state.lockSelected();
         return;
       }
       if (e.key === "Delete" || e.key === "Backspace") {

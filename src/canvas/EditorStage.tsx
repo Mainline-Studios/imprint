@@ -4,15 +4,17 @@ import { Layer, Line, Rect, Stage, Text as KonvaText, Transformer } from "react-
 import { ContextMenu } from "../editor/ContextMenu";
 import type { ContextMenuItem } from "../editor/ContextMenu";
 import { clientToPage } from "../lib/geometry";
+import { konvaFill } from "../lib/fill";
 import { useDocumentStore } from "../store/document";
 import { bakeGroup } from "./bake";
 import { ButtonNode } from "./nodes/ButtonNode";
 import { ImageNode } from "./nodes/ImageNode";
 import { ShapeNode } from "./nodes/ShapeNode";
+import { StickerNode } from "./nodes/StickerNode";
 import { TextNode } from "./nodes/TextNode";
 import { EMPTY_GUIDES, type Guides } from "./snap";
 import { TextOverlay } from "./TextOverlay";
-import { isLightColor, shirtPrintArea, shirtViewOf } from "../lib/shirt";
+import { pageIsLight, shirtPrintArea, shirtViewOf } from "../lib/shirt";
 import { isTshirtSize } from "../templates/presets";
 import type { ButtonObject, CanvasObject, TextObject } from "../types";
 
@@ -89,7 +91,11 @@ export function EditorStage() {
     }
     const nodes = selectedIds
       .map((id) => layer.findOne("#" + id))
-      .filter((n): n is Konva.Node => n != null);
+      .filter((n): n is Konva.Node => n != null)
+      .filter((n) => {
+        const obj = page?.objects.find((o) => o.id === n.id());
+        return obj != null && !obj.locked && obj.visible !== false;
+      });
     tr.nodes(nodes);
     layer.batchDraw();
   }, [selectedIds, page?.objects, editingTextId, zoom, fontsReady]);
@@ -184,11 +190,15 @@ export function EditorStage() {
   const editingObj = page.objects.find(
     (o): o is TextObject | ButtonObject => o.id === editingTextId && (o.type === "text" || o.type === "button"),
   );
-  const keepRatio = selectedIds.length === 1 && page.objects.find((o) => o.id === selectedIds[0])?.type === "image";
+  const keepRatio =
+    selectedIds.length === 1 &&
+    (page.objects.find((o) => o.id === selectedIds[0])?.type === "image" ||
+      page.objects.find((o) => o.id === selectedIds[0])?.type === "sticker");
   const tshirt = isTshirtSize(design.width, design.height);
   const shirtView = shirtViewOf(page, pageIndex);
   const printArea = tshirt ? shirtPrintArea(shirtView, design.width, design.height) : null;
-  const printStroke = isLightColor(page.background) ? "#7a2e2e" : "#c4a574";
+  const printStroke = pageIsLight(page.background) ? "#7a2e2e" : "#c4a574";
+  const pageFill = konvaFill(page.background, design.width, design.height);
 
   return (
     <div
@@ -205,9 +215,10 @@ export function EditorStage() {
         const point = clientToPage(e.clientX, e.clientY, e.currentTarget, panX, panY, zoom);
         if (raw) {
           const spec = JSON.parse(raw) as {
-            kind: "text" | "shape" | "button";
+            kind: "text" | "shape" | "button" | "sticker";
             variant?: "heading" | "subheading" | "body";
             shape?: "rect" | "ellipse" | "triangle" | "line";
+            sticker?: string;
           };
           if (spec.kind === "text" && spec.variant) {
             useDocumentStore.getState().addAt({ kind: "text", variant: spec.variant }, point);
@@ -215,6 +226,8 @@ export function EditorStage() {
             useDocumentStore.getState().addAt({ kind: "shape", shape: spec.shape }, point);
           } else if (spec.kind === "button") {
             useDocumentStore.getState().addAt({ kind: "button" }, point);
+          } else if (spec.kind === "sticker" && spec.sticker) {
+            useDocumentStore.getState().addAt({ kind: "sticker", sticker: spec.sticker }, point);
           }
           return;
         }
@@ -260,7 +273,7 @@ export function EditorStage() {
             y={0}
             width={design.width}
             height={design.height}
-            fill={page.background}
+            {...pageFill}
             shadowColor="rgba(26,22,20,0.28)"
             shadowBlur={24 / zoom}
             shadowOpacity={1}
@@ -272,7 +285,7 @@ export function EditorStage() {
             y={0}
             width={design.width}
             height={design.height}
-            fill={page.background}
+            {...pageFill}
             listening
           />
           {page.objects.map((obj) => renderNode(obj, setGuides))}
@@ -334,7 +347,7 @@ export function EditorStage() {
               }
               for (const node of tr.nodes()) {
                 const obj = current.objects.find((o) => o.id === node.id());
-                if (!obj) continue;
+                if (!obj || obj.locked) continue;
                 const patch = bakeGroup(node as Konva.Group, obj);
                 state.updateObject(obj.id, patch, { record: false });
               }
@@ -389,6 +402,14 @@ function canvasMenuItems(menu: CanvasMenu, clipboard: CanvasObject[] | null): Co
     { type: "item", label: "Paste", disabled: !canPaste, onSelect: () => state.pasteClipboard(at) },
     { type: "item", label: "Delete", onSelect: () => state.deleteSelected() },
     { type: "separator" },
+    { type: "item", label: "Group", disabled: state.selectedIds.length < 2, onSelect: () => state.groupSelected() },
+    { type: "item", label: "Ungroup", onSelect: () => state.ungroupSelected() },
+    {
+      type: "item",
+      label: selectedObjectsLocked(state) ? "Unlock" : "Lock",
+      onSelect: () => (selectedObjectsLocked(state) ? state.unlockSelected() : state.lockSelected()),
+    },
+    { type: "separator" },
     { type: "item", label: "Bring to front", onSelect: () => state.bringToFront() },
     { type: "item", label: "Send to back", onSelect: () => state.sendToBack() },
     { type: "item", label: "Bring forward", onSelect: () => state.bringForward() },
@@ -396,7 +417,14 @@ function canvasMenuItems(menu: CanvasMenu, clipboard: CanvasObject[] | null): Co
   ];
 }
 
+function selectedObjectsLocked(state: ReturnType<typeof useDocumentStore.getState>): boolean {
+  const page = state.design?.pages[state.currentPageIndex];
+  if (!page || state.selectedIds.length === 0) return false;
+  return state.selectedIds.every((id) => page.objects.find((o) => o.id === id)?.locked);
+}
+
 function renderNode(obj: CanvasObject, onGuides: (g: Guides) => void) {
+  if (obj.visible === false) return null;
   if (obj.type === "text") {
     return (
       <TextNode
@@ -419,6 +447,9 @@ function renderNode(obj: CanvasObject, onGuides: (g: Guides) => void) {
         onEdit={() => useDocumentStore.getState().setEditingText(obj.id)}
       />
     );
+  }
+  if (obj.type === "sticker") {
+    return <StickerNode key={obj.id} obj={obj} onGuides={onGuides} />;
   }
   return <ShapeNode key={obj.id} obj={obj} onGuides={onGuides} />;
 }

@@ -1,12 +1,14 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { ColorInput, Field, FillEditor, YourColors } from "./ColorField";
 import { ShirtPreview } from "../editor/ShirtPreview";
 import { useDocumentStore, currentPage, selectedObjects } from "../store/document";
 import { SIZE_PRESETS, isEmailSize, isSiteSize, isTshirtSize } from "../templates/presets";
 import { FONT_GROUPS, fontsIn, fontOf, isFontFamily } from "../fonts/catalog";
 import { emailFromMailto, hrefKind, mailtoHref, normalizeHrefInput, pageHref, pageIndexFromHref } from "../lib/href";
 import { shirtViewOf, shirtViewPhrase } from "../lib/shirt";
+import { normalizedCrop } from "../lib/fill";
 import { TextEffectsPanel } from "./TextEffectsPanel";
-import type { ButtonObject, CanvasObject, FontWeight, ShapeObject, TextAlign, TextObject } from "../types";
+import type { ButtonObject, CanvasObject, FontWeight, ImageObject, ShapeObject, StickerObject, TextAlign, TextObject } from "../types";
 
 export function Inspector() {
   const design = useDocumentStore((s) => s.design);
@@ -29,13 +31,15 @@ export function Inspector() {
         <>
           <h3>Page</h3>
           <Field label="Background">
-            <ColorInput
+            <FillEditor
               value={page.background}
-              onBegin={() => useDocumentStore.getState().beginHistory()}
-              onChange={(v) => useDocumentStore.getState().setBackground(v)}
-              onEnd={() => useDocumentStore.getState().endHistory()}
+              onChange={(fill) => useDocumentStore.getState().setBackground(fill)}
             />
           </Field>
+          <YourColors
+            colors={design.brandColors ?? []}
+            onChange={(colors) => useDocumentStore.getState().setBrandColors(colors)}
+          />
           <Field label="Size">
             <select
               value={SIZE_PRESETS.find((p) => p.width === design.width && p.height === design.height)?.id ?? "custom"}
@@ -79,6 +83,22 @@ export function Inspector() {
           <h3>{selectedIds.length} selected</h3>
           <LayerButtons />
           <AlignButtons />
+          <Field label="Group">
+            <div className="seg wrap">
+              <button type="button" onClick={() => useDocumentStore.getState().groupSelected()}>
+                Group
+              </button>
+              <button type="button" onClick={() => useDocumentStore.getState().ungroupSelected()}>
+                Ungroup
+              </button>
+              <button type="button" onClick={() => useDocumentStore.getState().lockSelected()}>
+                Lock
+              </button>
+              <button type="button" onClick={() => useDocumentStore.getState().unlockSelected()}>
+                Unlock
+              </button>
+            </div>
+          </Field>
         </>
       )}
 
@@ -86,11 +106,22 @@ export function Inspector() {
       {one?.type === "shape" && <ShapeFields obj={one} />}
       {one?.type === "image" && <ImageFields obj={one} />}
       {one?.type === "button" && <ButtonFields obj={one} />}
+      {one?.type === "sticker" && <StickerFields obj={one} />}
       {one && <PositionFields obj={one} />}
       {one && (
         <>
           <LayerButtons />
           <AlignButtons />
+          <Field label="Lock">
+            <div className="seg wrap">
+              <button type="button" onClick={() => useDocumentStore.getState().lockSelected()}>
+                Lock
+              </button>
+              <button type="button" onClick={() => useDocumentStore.getState().unlockSelected()}>
+                Unlock
+              </button>
+            </div>
+          </Field>
         </>
       )}
     </aside>
@@ -202,11 +233,13 @@ function ShapeFields({ obj }: { obj: ShapeObject }) {
     <>
       <h3>Shape</h3>
       <Field label="Fill">
-        <ColorInput
+        <FillEditor
           value={obj.fill}
-          onBegin={() => useDocumentStore.getState().beginHistory()}
-          onChange={(v) => useDocumentStore.getState().updateObject(obj.id, { fill: v }, { record: false })}
-          onEnd={() => useDocumentStore.getState().endHistory()}
+          onChange={(fill) =>
+            useDocumentStore.getState().updateObject(obj.id, { fill } as Partial<CanvasObject>, {
+              record: !useDocumentStore.getState().grouping,
+            })
+          }
         />
       </Field>
       <Field label="Stroke">
@@ -250,10 +283,141 @@ function ShapeFields({ obj }: { obj: ShapeObject }) {
   );
 }
 
-function ImageFields({ obj }: { obj: CanvasObject }) {
+function ImageFields({ obj }: { obj: ImageObject }) {
+  const crop = normalizedCrop(obj.crop);
+  const filter = obj.filter ?? {};
+  const s = () => useDocumentStore.getState();
   return (
     <>
       <h3>Image</h3>
+      <p className="hint">Crop keeps a slice of the photo. Filters are a light touch — paper, not a darkroom.</p>
+      <Field label={`Crop left ${Math.round(crop.x * 100)}%`}>
+        <input
+          type="range"
+          min={0}
+          max={95}
+          value={Math.round(crop.x * 100)}
+          onPointerDown={() => s().beginHistory()}
+          onPointerUp={() => s().endHistory()}
+          onChange={(e) =>
+            s().updateObject(obj.id, { crop: { ...crop, x: Number(e.target.value) / 100 } }, { record: false })
+          }
+        />
+      </Field>
+      <Field label={`Crop top ${Math.round(crop.y * 100)}%`}>
+        <input
+          type="range"
+          min={0}
+          max={95}
+          value={Math.round(crop.y * 100)}
+          onPointerDown={() => s().beginHistory()}
+          onPointerUp={() => s().endHistory()}
+          onChange={(e) =>
+            s().updateObject(obj.id, { crop: { ...crop, y: Number(e.target.value) / 100 } }, { record: false })
+          }
+        />
+      </Field>
+      <Field label={`Crop width ${Math.round(crop.w * 100)}%`}>
+        <input
+          type="range"
+          min={5}
+          max={100}
+          value={Math.round(crop.w * 100)}
+          onPointerDown={() => s().beginHistory()}
+          onPointerUp={() => s().endHistory()}
+          onChange={(e) =>
+            s().updateObject(obj.id, { crop: { ...crop, w: Number(e.target.value) / 100 } }, { record: false })
+          }
+        />
+      </Field>
+      <Field label={`Crop height ${Math.round(crop.h * 100)}%`}>
+        <input
+          type="range"
+          min={5}
+          max={100}
+          value={Math.round(crop.h * 100)}
+          onPointerDown={() => s().beginHistory()}
+          onPointerUp={() => s().endHistory()}
+          onChange={(e) =>
+            s().updateObject(obj.id, { crop: { ...crop, h: Number(e.target.value) / 100 } }, { record: false })
+          }
+        />
+      </Field>
+      <Field label={`Brighten ${Math.round((filter.brighten ?? 0) * 100)}`}>
+        <input
+          type="range"
+          min={-80}
+          max={80}
+          value={Math.round((filter.brighten ?? 0) * 100)}
+          onPointerDown={() => s().beginHistory()}
+          onPointerUp={() => s().endHistory()}
+          onChange={(e) =>
+            s().updateObject(
+              obj.id,
+              { filter: { ...filter, brighten: Number(e.target.value) / 100 } },
+              { record: false },
+            )
+          }
+        />
+      </Field>
+      <Field label={`Contrast ${Math.round(filter.contrast ?? 0)}`}>
+        <input
+          type="range"
+          min={-80}
+          max={80}
+          value={Math.round(filter.contrast ?? 0)}
+          onPointerDown={() => s().beginHistory()}
+          onPointerUp={() => s().endHistory()}
+          onChange={(e) =>
+            s().updateObject(
+              obj.id,
+              { filter: { ...filter, contrast: Number(e.target.value) } },
+              { record: false },
+            )
+          }
+        />
+      </Field>
+      <Field label={`Blur ${Math.round(filter.blur ?? 0)}`}>
+        <input
+          type="range"
+          min={0}
+          max={20}
+          value={Math.round(filter.blur ?? 0)}
+          onPointerDown={() => s().beginHistory()}
+          onPointerUp={() => s().endHistory()}
+          onChange={(e) =>
+            s().updateObject(obj.id, { filter: { ...filter, blur: Number(e.target.value) } }, { record: false })
+          }
+        />
+      </Field>
+      <Field label="Grayscale">
+        <div className="seg">
+          <button
+            type="button"
+            className={filter.grayscale ? "on" : ""}
+            onClick={() => s().updateObject(obj.id, { filter: { ...filter, grayscale: !filter.grayscale } })}
+          >
+            {filter.grayscale ? "On" : "Off"}
+          </button>
+        </div>
+      </Field>
+      <OpacityField obj={obj} />
+    </>
+  );
+}
+
+function StickerFields({ obj }: { obj: StickerObject }) {
+  return (
+    <>
+      <h3>Sticker</h3>
+      <Field label="Ink">
+        <ColorInput
+          value={obj.fill}
+          onBegin={() => useDocumentStore.getState().beginHistory()}
+          onChange={(v) => useDocumentStore.getState().updateObject(obj.id, { fill: v }, { record: false })}
+          onEnd={() => useDocumentStore.getState().endHistory()}
+        />
+      </Field>
       <OpacityField obj={obj} />
     </>
   );
@@ -518,15 +682,6 @@ function AlignButtons() {
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="field">
-      <span>{label}</span>
-      {children}
-    </div>
-  );
-}
-
 function NumField({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
   return (
     <Field label={label}>
@@ -539,31 +694,5 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
         }}
       />
     </Field>
-  );
-}
-
-function ColorInput({
-  value,
-  onChange,
-  onBegin,
-  onEnd,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onBegin: () => void;
-  onEnd: () => void;
-}) {
-  const hex = value.startsWith("#") && value.length >= 7 ? value.slice(0, 7) : "#1a1614";
-  return (
-    <div className="color-input">
-      <input type="color" value={hex} onFocus={onBegin} onBlur={onEnd} onChange={(e) => onChange(e.target.value)} />
-      <input
-        type="text"
-        value={value}
-        onFocus={onBegin}
-        onBlur={onEnd}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
   );
 }

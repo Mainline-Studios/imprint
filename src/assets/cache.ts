@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getAsset } from "../persist/db";
+import { ensureLocalAsset } from "../persist/assets";
 
 const objectUrls = new Map<string, string>();
 const images = new Map<string, HTMLImageElement>();
@@ -13,7 +14,7 @@ export async function loadAssetImage(assetId: string): Promise<HTMLImageElement>
   if (pending) return pending;
 
   const task = (async () => {
-    const rec = await getAsset(assetId);
+    const rec = (await getAsset(assetId)) ?? (await ensureLocalAsset(assetId));
     if (!rec) throw new Error(`Missing asset ${assetId}`);
     let url = objectUrls.get(assetId);
     if (!url) {

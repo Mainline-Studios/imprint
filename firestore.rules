@@ -20,9 +20,18 @@ service cloud.firestore {
     //     count level; Firestore rules cannot iterate variable-length lists.
     //   - updatedAt: number (required, millisecond epoch, 1 .. 4102444800000)
     //   - shirt: map (optional) { color: string <= 32, neck: "crew" | "v" }
+    //   - brandColors: list of strings (optional, 0-24)
+    //   - folder: string (optional, 1-80)
     //
-    // There is no users profile document. Designs do not store email or
-    // other PII. Uploaded image blobs stay in IndexedDB on the device.
+    // Collection: users/{userId}/brand/{docId}
+    //   - colors: list of strings (optional)
+    //
+    // Collection: shares/{token}
+    //   Public snapshot for a view-only link.
+    //   Fields: ownerUid, name, width, height, pages, assetUrls, createdAt
+    //
+    // Uploaded image blobs: Firebase Storage users/{uid}/assets/{id} when signed in.
+    // Signed-out stays IndexedDB on the device.
     //
     // ===============================================================
 
@@ -75,9 +84,44 @@ service cloud.firestore {
         pages.size() <= 50;
     }
 
+    function isValidBrandColors(data) {
+      return !('brandColors' in data) || (
+        data.brandColors is list &&
+        data.brandColors.size() <= 24
+      );
+    }
+
+    function isValidFolder(data) {
+      return !('folder' in data) || (
+        data.folder is string &&
+        data.folder.size() >= 1 &&
+        data.folder.size() <= 80
+      );
+    }
+
+    function isValidShare(data) {
+      return data.keys().hasOnly(['ownerUid', 'name', 'width', 'height', 'pages', 'assetUrls', 'createdAt']) &&
+        data.ownerUid is string &&
+        data.ownerUid == request.auth.uid &&
+        data.name is string &&
+        data.name.size() >= 1 &&
+        data.name.size() <= 200 &&
+        data.width is number &&
+        data.width >= 1 &&
+        data.width <= 20000 &&
+        data.height is number &&
+        data.height >= 1 &&
+        data.height <= 20000 &&
+        data.pages is list &&
+        data.assetUrls is map &&
+        data.createdAt is number &&
+        data.createdAt > 0 &&
+        data.createdAt < 4102444800000;
+    }
+
     function isValidDesign(data, userId, designId) {
       return hasRequiredFields(['id', 'ownerUid', 'name', 'width', 'height', 'pages', 'updatedAt']) &&
-        hasOnlyAllowedFields(['id', 'ownerUid', 'name', 'width', 'height', 'pages', 'updatedAt', 'shirt']) &&
+        hasOnlyAllowedFields(['id', 'ownerUid', 'name', 'width', 'height', 'pages', 'updatedAt', 'shirt', 'brandColors', 'folder']) &&
         data.id is string &&
         data.id == designId &&
         data.id.size() >= 8 &&
@@ -92,7 +136,9 @@ service cloud.firestore {
         data.updatedAt is number &&
         data.updatedAt > 0 &&
         data.updatedAt < 4102444800000 &&
-        isValidShirt(data);
+        isValidShirt(data) &&
+        isValidBrandColors(data) &&
+        isValidFolder(data);
     }
 
     match /users/{userId}/designs/{designId} {
@@ -106,6 +152,23 @@ service cloud.firestore {
         areImmutableFieldsUnchanged(['id', 'ownerUid']);
 
       allow delete: if isOwner(userId);
+    }
+
+    match /users/{userId}/brand/{docId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /shares/{token} {
+      allow read: if true;
+
+      allow create: if isAuthenticated() && isValidShare(request.resource.data);
+
+      allow update: if isAuthenticated() &&
+        resource.data.ownerUid == request.auth.uid &&
+        isValidShare(request.resource.data) &&
+        areImmutableFieldsUnchanged(['ownerUid']);
+
+      allow delete: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
     }
 
     match /{document=**} {

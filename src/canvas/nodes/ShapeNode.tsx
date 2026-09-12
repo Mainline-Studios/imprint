@@ -1,11 +1,13 @@
 import { Ellipse, Line, Rect } from "react-konva";
+import { konvaFill } from "../../lib/fill";
 import type { ShapeObject } from "../../types";
 import { ObjectGroup } from "../ObjectGroup";
 import type { Guides } from "../snap";
 
 export function ShapeNode({ obj, onGuides }: { obj: ShapeObject; onGuides: (g: Guides) => void }) {
+  const fillProps = konvaFill(obj.fill, obj.width, obj.height);
   const common = {
-    fill: obj.fill,
+    ...fillProps,
     stroke: obj.strokeWidth ? obj.stroke : undefined,
     strokeWidth: obj.strokeWidth,
     listening: true,
@@ -20,16 +22,11 @@ export function ShapeNode({ obj, onGuides }: { obj: ShapeObject; onGuides: (g: G
           height={obj.height}
           cornerRadius={obj.shape === "line" ? 99 : obj.cornerRadius}
           {...common}
-          fill={obj.shape === "line" ? obj.fill : obj.fill}
         />
       ) : obj.shape === "ellipse" ? (
         <Ellipse x={obj.width / 2} y={obj.height / 2} radiusX={obj.width / 2} radiusY={obj.height / 2} {...common} />
       ) : (
-        <Line
-          points={[obj.width / 2, 0, obj.width, obj.height, 0, obj.height]}
-          closed
-          {...common}
-        />
+        <Line points={[obj.width / 2, 0, obj.width, obj.height, 0, obj.height]} closed {...common} />
       )}
     </ObjectGroup>
   );

@@ -1,5 +1,6 @@
 import { isTshirtSize } from "../templates/presets";
-import type { Design, Page, ShirtMeta, ShirtView } from "../types";
+import type { Design, Fill, Page, ShirtMeta, ShirtView } from "../types";
+import { solidColor } from "./fill";
 import { uuid } from "./ids";
 
 export const SHIRT_VIEWS: ShirtView[] = ["front", "back", "left-shoulder", "right-shoulder"];
@@ -54,9 +55,13 @@ export function emptyShirtPage(role: ShirtView, background = "#ffffff"): Page {
 }
 
 export function defaultShirtColor(pages: Page[]): string {
-  const bg = (pages[0]?.background ?? "").toLowerCase();
+  const bg = solidColor(pages[0]?.background ?? "#ffffff", "#ffffff").toLowerCase();
   if (LIGHT_PAGE_BACKGROUNDS.has(bg)) return LIGHT_SHIRT_COLOR;
   return DEFAULT_SHIRT_COLOR;
+}
+
+export function pageIsLight(background: Fill): boolean {
+  return isLightColor(solidColor(background, "#ffffff"));
 }
 
 export function defaultShirtMeta(pages: Page[]): ShirtMeta {

@@ -27,7 +27,7 @@ export function ObjectGroup({ obj, children, onGuides, onDblClick }: Props) {
       y={obj.y}
       rotation={obj.rotation}
       opacity={editingTextId === obj.id && obj.type === "text" ? 0 : obj.opacity}
-      draggable={!spaceDown && editingTextId !== obj.id}
+      draggable={!spaceDown && editingTextId !== obj.id && !obj.locked}
       onMouseDown={(e) => {
         e.cancelBubble = true;
         const additive = e.evt.shiftKey;
@@ -68,7 +68,7 @@ export function ObjectGroup({ obj, children, onGuides, onDblClick }: Props) {
             if (id === obj.id) continue;
             const otherObj = page.objects.find((o) => o.id === id);
             const otherNode = layer?.findOne("#" + id) as Konva.Group | undefined;
-            if (otherObj && otherNode) {
+            if (otherObj && otherNode && !otherObj.locked) {
               otherNode.x(otherObj.x + dx);
               otherNode.y(otherObj.y + dy);
             }
@@ -88,7 +88,8 @@ export function ObjectGroup({ obj, children, onGuides, onDblClick }: Props) {
         const ids = state.selectedIds.includes(obj.id) ? state.selectedIds : [obj.id];
         for (const id of ids) {
           const n = layer.findOne("#" + id) as Konva.Group | undefined;
-          if (n) state.updateObject(id, { x: n.x(), y: n.y() }, { record: false });
+          const other = page.objects.find((o) => o.id === id);
+          if (n && other && !other.locked) state.updateObject(id, { x: n.x(), y: n.y() }, { record: false });
         }
         state.endHistory();
       }}

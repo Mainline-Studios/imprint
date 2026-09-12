@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AccountMenu } from "../auth/AccountMenu";
 import { ExportPanel, runChosenExport, type ExportOpts } from "./ExportPanel";
+import { createShare, shareUrl } from "../persist/share";
 import { useDocumentStore } from "../store/document";
 import { SIZE_PRESETS, presetLabel } from "../templates/presets";
 
@@ -99,6 +100,17 @@ export function TopBar() {
           </button>
         </div>
         <span className="save-pill">{dirty ? "Saving" : "Saved"}</span>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={() => useDocumentStore.getState().setPresenting(true)}
+          title="Present"
+        >
+          Present
+        </button>
+        <button type="button" className="icon-btn" onClick={() => void copyShareLink(setToast)} title="Share">
+          Share
+        </button>
         <AccountMenu variant="topbar" />
         <div className="export-wrap" ref={menuRef}>
           <button
@@ -131,4 +143,19 @@ function ToastBridge({ onToast }: { onToast: (s: string | null) => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onToast]);
   return null;
+}
+
+async function copyShareLink(onToast: (s: string | null) => void): Promise<void> {
+  const design = useDocumentStore.getState().design;
+  if (!design) return;
+  try {
+    const token = await createShare(design);
+    const url = shareUrl(token);
+    await navigator.clipboard.writeText(url);
+    onToast("Link copied");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Could not copy a share link.";
+    onToast(msg);
+  }
+  window.setTimeout(() => onToast(null), 1800);
 }

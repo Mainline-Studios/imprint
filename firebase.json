@@ -22,5 +22,8 @@
     "edition": "enterprise",
     "database": "imprint",
     "location": "nam5"
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

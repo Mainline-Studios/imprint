@@ -3,12 +3,16 @@ import { FONT_CATALOG, FONT_GROUPS, fontOf } from "../fonts/catalog";
 import { TEMPLATES, templateThumbColors } from "../templates/catalog";
 import { useDocumentStore } from "../store/document";
 import type { ShapeKind, SidebarTab } from "../types";
+import { LayersPanel } from "./LayersPanel";
+import { STICKERS } from "./stickers";
 
 const TABS: { id: SidebarTab; label: string }[] = [
   { id: "templates", label: "Templates" },
   { id: "elements", label: "Elements" },
   { id: "text", label: "Text" },
+  { id: "stickers", label: "Stickers" },
   { id: "uploads", label: "Uploads" },
+  { id: "layers", label: "Layers" },
 ];
 
 export function Sidebar() {
@@ -86,6 +90,32 @@ export function Sidebar() {
           </>
         )}
 
+        {tab === "stickers" && (
+          <>
+            <p className="hint">Ink marks you can stamp on the page. Drag one onto the canvas.</p>
+            <div className="sticker-grid">
+              {STICKERS.map((sticker) => (
+                <button
+                  key={sticker.id}
+                  type="button"
+                  className="sticker-tile"
+                  title={sticker.name}
+                  draggable
+                  onDragStart={(e) =>
+                    e.dataTransfer.setData("application/imprint", JSON.stringify({ kind: "sticker", sticker: sticker.id }))
+                  }
+                  onClick={() => useDocumentStore.getState().addAt({ kind: "sticker", sticker: sticker.id })}
+                >
+                  <svg viewBox={`0 0 ${sticker.view} ${sticker.view}`} aria-hidden>
+                    <path d={sticker.path} fill="#7a2e2e" stroke="#7a2e2e" strokeWidth="0.6" />
+                  </svg>
+                  <span>{sticker.name}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
         {tab === "text" && (
           <div className="text-adds">
             {(
@@ -150,7 +180,7 @@ export function Sidebar() {
             <button type="button" className="btn-secondary wide" onClick={() => inputRef.current?.click()}>
               Upload image
             </button>
-            <p className="hint">Images stay in this browser. Drag a file onto the page to place it.</p>
+            <p className="hint">Images stay on this device. Signed in, they also save to your account. Drag a file onto the page to place it.</p>
             {assets.length > 0 && (
               <div className="asset-list">
                 {assets.slice(0, 24).map((a) => (
@@ -169,6 +199,8 @@ export function Sidebar() {
             )}
           </div>
         )}
+
+        {tab === "layers" && <LayersPanel />}
       </div>
     </aside>
   );

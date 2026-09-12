@@ -28,8 +28,41 @@ export type TextEffectId =
   | "arcade"
   | "cosmic"
   | "pixel";
-export type SidebarTab = "templates" | "elements" | "text" | "uploads";
+export type SidebarTab = "templates" | "elements" | "text" | "stickers" | "uploads" | "layers";
 export type View = "home" | "editor";
+
+export type ColorStop = {
+  offset: number;
+  color: string;
+};
+
+export type LinearFill = {
+  kind: "linear";
+  angle: number;
+  stops: ColorStop[];
+};
+
+export type Fill = string | LinearFill;
+
+export type ImageCrop = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type ImageFilter = {
+  brighten?: number;
+  contrast?: number;
+  grayscale?: boolean;
+  blur?: number;
+};
+
+export type ObjectFlags = {
+  locked?: boolean;
+  groupId?: string;
+  visible?: boolean;
+};
 
 export type TextObject = {
   id: string;
@@ -57,7 +90,7 @@ export type TextObject = {
   letterSpacing?: number;
   lineHeight?: number;
   textTransform?: TextTransform;
-};
+} & ObjectFlags;
 
 export type ShapeObject = {
   id: string;
@@ -68,12 +101,12 @@ export type ShapeObject = {
   width: number;
   height: number;
   rotation: number;
-  fill: string;
+  fill: Fill;
   stroke: string;
   strokeWidth: number;
   cornerRadius: number;
   opacity: number;
-};
+} & ObjectFlags;
 
 export type ImageObject = {
   id: string;
@@ -85,7 +118,9 @@ export type ImageObject = {
   rotation: number;
   assetId: string;
   opacity: number;
-};
+  crop?: ImageCrop;
+  filter?: ImageFilter;
+} & ObjectFlags;
 
 export type ButtonObject = {
   id: string;
@@ -104,9 +139,22 @@ export type ButtonObject = {
   fontWeight: FontWeight;
   cornerRadius: number;
   opacity: number;
-};
+} & ObjectFlags;
 
-export type CanvasObject = TextObject | ShapeObject | ImageObject | ButtonObject;
+export type StickerObject = {
+  id: string;
+  type: "sticker";
+  sticker: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  fill: string;
+  opacity: number;
+} & ObjectFlags;
+
+export type CanvasObject = TextObject | ShapeObject | ImageObject | ButtonObject | StickerObject;
 
 export type ShirtView = "front" | "back" | "left-shoulder" | "right-shoulder";
 
@@ -117,7 +165,7 @@ export type ShirtMeta = {
 
 export type Page = {
   id: string;
-  background: string;
+  background: Fill;
   objects: CanvasObject[];
   role?: ShirtView;
 };
@@ -131,6 +179,8 @@ export type Design = {
   updatedAt: number;
   shirt?: ShirtMeta;
   ownerUid?: string;
+  brandColors?: string[];
+  folder?: string;
 };
 
 export type Snapshot = {
@@ -141,6 +191,18 @@ export type Snapshot = {
   currentPageIndex: number;
   selectedIds: string[];
   shirt?: ShirtMeta;
+  brandColors?: string[];
+  folder?: string;
+};
+
+export type ShareSnapshot = {
+  ownerUid: string;
+  name: string;
+  width: number;
+  height: number;
+  pages: Page[];
+  assetUrls: Record<string, string>;
+  createdAt: number;
 };
 
 export type AssetRecord = {

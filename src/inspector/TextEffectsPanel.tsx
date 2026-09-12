@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { CLEAR_EFFECT_PATCH, EFFECT_TILES, textEffectOf } from "../canvas/textEffects";
+import { ColorInput } from "./ColorField";
 import { useDocumentStore } from "../store/document";
 import {
   curveOf,
@@ -241,25 +242,5 @@ function RangeField({
         onChange={(e) => onChange(Number(e.target.value))}
       />
     </Field>
-  );
-}
-
-function ColorInput({
-  value,
-  onChange,
-  onBegin,
-  onEnd,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onBegin: () => void;
-  onEnd: () => void;
-}) {
-  const hex = value.startsWith("#") && value.length >= 7 ? value.slice(0, 7) : "#1a1614";
-  return (
-    <div className="color-input">
-      <input type="color" value={hex} onFocus={onBegin} onBlur={onEnd} onChange={(e) => onChange(e.target.value)} />
-      <input type="text" value={value} onFocus={onBegin} onBlur={onEnd} onChange={(e) => onChange(e.target.value)} />
-    </div>
   );
 }

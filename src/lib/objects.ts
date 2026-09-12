@@ -1,4 +1,5 @@
-import type { ButtonObject, CanvasObject, FontFamily, FontWeight, ShapeKind, TextObject } from "../types";
+import { stickerById } from "../library/stickers";
+import type { ButtonObject, CanvasObject, FontFamily, FontWeight, ShapeKind, StickerObject, TextObject } from "../types";
 import { uuid } from "./ids";
 
 const INK = "#1a1614";
@@ -134,6 +135,28 @@ export function createButton(
     fontSize: Math.round(22 * u),
     fontWeight: 600 as FontWeight,
     cornerRadius: Math.round(8 * u),
+    opacity: 1,
+  };
+}
+
+export function createSticker(
+  canvas: { width: number; height: number },
+  stickerId: string,
+  at?: { x: number; y: number },
+): StickerObject {
+  const u = unit(canvas.width, canvas.height);
+  const def = stickerById(stickerId);
+  const size = 160 * u;
+  return {
+    id: uuid(),
+    type: "sticker",
+    sticker: def?.id ?? stickerId,
+    x: at?.x ?? (canvas.width - size) / 2,
+    y: at?.y ?? (canvas.height - size) / 2,
+    width: size,
+    height: size,
+    rotation: 0,
+    fill: "#7a2e2e",
     opacity: 1,
   };
 }

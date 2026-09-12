@@ -1,7 +1,9 @@
 import { fontOf } from "../fonts/catalog";
+import { cssFill, cssImageFilter, cropObjectPosition } from "../lib/fill";
 import { sanitizeHref } from "../lib/href";
+import { stickerById } from "../library/stickers";
 import { getAsset } from "../persist/db";
-import type { ButtonObject, CanvasObject, Design, ImageObject, Page, ShapeObject, TextObject } from "../types";
+import type { ButtonObject, CanvasObject, Design, ImageObject, Page, ShapeObject, StickerObject, TextObject } from "../types";
 import { downloadBlob, slug } from "./renderPage";
 
 const HTML_TYPE = "text/html;charset=utf-8";
@@ -142,10 +144,13 @@ function renderPage(
   assets: Map<string, string>,
   active: boolean,
 ): string {
-  const kids = page.objects.map((obj) => renderObject(design, obj, assets)).join("");
+  const kids = page.objects
+    .filter((obj) => obj.visible !== false)
+    .map((obj) => renderObject(design, obj, assets))
+    .join("");
   const on = active ? " is-on" : "";
   const hidden = active ? "" : ' aria-hidden="true"';
-  return `  <section class="page${on}" id="page-${index + 1}"${hidden} style="background:${escapeAttr(page.background)}">${kids}
+  return `  <section class="page${on}" id="page-${index + 1}"${hidden} style="background:${escapeAttr(cssFill(page.background))}">${kids}
   </section>`;
 }
 
@@ -153,6 +158,7 @@ function renderObject(design: Design, obj: CanvasObject, assets: Map<string, str
   if (obj.type === "text") return renderText(design, obj);
   if (obj.type === "image") return renderImage(design, obj, assets);
   if (obj.type === "button") return renderButton(design, obj);
+  if (obj.type === "sticker") return renderSticker(design, obj);
   return renderShape(design, obj);
 }
 
@@ -178,7 +184,12 @@ function renderText(design: Design, obj: TextObject): string {
 function renderImage(design: Design, obj: ImageObject, assets: Map<string, string>): string {
   const src = assets.get(obj.assetId);
   if (!src) return "";
-  return `<img class="el" alt="" src="${escapeAttr(src)}" style="${box(obj, design.width, design.height, true)}object-fit:cover" />`;
+  const extras = ["object-fit:cover"];
+  const pos = cropObjectPosition(obj.crop);
+  if (pos) extras.push(`object-position:${pos}`);
+  const filter = cssImageFilter(obj.filter);
+  if (filter) extras.push(`filter:${filter}`);
+  return `<img class="el" alt="" src="${escapeAttr(src)}" style="${box(obj, design.width, design.height, true)}${extras.join(";")}" />`;
 }
 
 function renderButton(design: Design, obj: ButtonObject): string {
@@ -207,13 +218,20 @@ function renderButton(design: Design, obj: ButtonObject): string {
 }
 
 function renderShape(design: Design, obj: ShapeObject): string {
-  const extras = [`background:${escapeAttr(obj.fill)}`];
+  const extras = [`background:${escapeAttr(cssFill(obj.fill))}`];
   if (obj.shape === "ellipse") extras.push("border-radius:50%");
   else if (obj.shape === "line") extras.push("border-radius:99px");
   else if (obj.shape === "triangle") extras.push("clip-path:polygon(50% 0,100% 100%,0 100%)");
   else extras.push(`border-radius:${cqw(obj.cornerRadius, design.width)}`);
   if (obj.strokeWidth) extras.push(`border:${obj.strokeWidth}px solid ${escapeAttr(obj.stroke)}`);
   return `<div class="el" style="${box(obj, design.width, design.height, true)}${extras.join(";")}"></div>`;
+}
+
+function renderSticker(design: Design, obj: StickerObject): string {
+  const def = stickerById(obj.sticker);
+  if (!def) return "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${def.view} ${def.view}" width="100%" height="100%"><path d="${escapeAttr(def.path)}" fill="${escapeAttr(obj.fill)}" stroke="${escapeAttr(obj.fill)}" stroke-width="0.6"/></svg>`;
+  return `<div class="el" style="${box(obj, design.width, design.height, true)}">${svg}</div>`;
 }
 
 function box(

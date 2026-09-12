@@ -1,6 +1,6 @@
 import { collection, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase/app";
-import type { Design } from "../types";
+import type { Design, Page, ShirtMeta } from "../types";
 
 const MAX_JSON_CHARS = 900_000;
 
@@ -22,13 +22,34 @@ function toCloud(design: Design, uid: string): Record<string, unknown> {
     pages: design.pages,
     updatedAt: design.updatedAt,
     ...(design.shirt ? { shirt: design.shirt } : {}),
+    ...(design.brandColors ? { brandColors: design.brandColors } : {}),
+    ...(design.folder ? { folder: design.folder } : {}),
   };
   return JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
 }
 
+function fromCloud(data: Record<string, unknown>): Design {
+  const pages = (Array.isArray(data.pages) ? data.pages : []) as Page[];
+  const next: Design = {
+    id: String(data.id ?? ""),
+    name: String(data.name ?? "Untitled"),
+    width: Number(data.width) || 1080,
+    height: Number(data.height) || 1080,
+    pages,
+    updatedAt: Number(data.updatedAt) || Date.now(),
+  };
+  if (typeof data.ownerUid === "string") next.ownerUid = data.ownerUid;
+  if (data.shirt && typeof data.shirt === "object") next.shirt = data.shirt as ShirtMeta;
+  if (Array.isArray(data.brandColors)) {
+    next.brandColors = data.brandColors.filter((c): c is string => typeof c === "string");
+  }
+  if (typeof data.folder === "string" && data.folder) next.folder = data.folder;
+  return next;
+}
+
 export async function listCloudDesigns(uid: string): Promise<Design[]> {
   const snap = await getDocs(designsCol(uid));
-  return snap.docs.map((d) => d.data() as Design);
+  return snap.docs.map((d) => fromCloud(d.data()));
 }
 
 export async function saveCloudDesign(uid: string, design: Design): Promise<void> {

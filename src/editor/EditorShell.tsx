@@ -4,6 +4,7 @@ import { Sidebar } from "../library/Sidebar";
 import { useDocumentStore } from "../store/document";
 import { Keyboard } from "./Keyboard";
 import { PageStrip } from "./PageStrip";
+import { PresentMode } from "./PresentMode";
 import { TopBar } from "./TopBar";
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -29,6 +30,7 @@ export function EditorShell() {
       <EditorStage />
       <Inspector />
       <PageStrip />
+      <PresentMode />
       {exporting && (
         <div className="export-overlay" role="status">
           Exporting…

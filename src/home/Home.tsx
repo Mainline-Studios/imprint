@@ -5,12 +5,16 @@ import { SIZE_PRESETS, presetLabel } from "../templates/presets";
 import { TEMPLATES } from "../templates/catalog";
 import { AccountMenu } from "../auth/AccountMenu";
 import { useAuth } from "../auth/AuthProvider";
+import { YourColors } from "../inspector/ColorField";
 import { TemplatesScreen, type CreateNavId } from "./TemplatesScreen";
 import type { Design, TemplateDef } from "../types";
 
 type HeroTab = "home" | "templates";
 type CategoryId = "templates" | "presentation" | "social" | "print" | "site" | "email" | "custom" | "upload";
 type SizeGroup = "social" | "presentation" | "print" | "site" | "email";
+type PileFilter = "all" | "unfiled" | string;
+
+const THIS_WEEK = "This week";
 
 const CATEGORIES: { id: CategoryId; label: string; color: string }[] = [
   { id: "templates", label: "Templates", color: "#7a2e2e" },
@@ -26,11 +30,13 @@ const CATEGORIES: { id: CategoryId; label: string; color: string }[] = [
 export function Home() {
   const { user } = useAuth();
   const designs = useDocumentStore((s) => s.designs);
+  const brandDefaults = useDocumentStore((s) => s.brandDefaults);
   const [query, setQuery] = useState("");
   const [heroTab, setHeroTab] = useState<HeroTab>("home");
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [createNav, setCreateNav] = useState<CreateNavId>("foryou");
   const [recentsExpanded, setRecentsExpanded] = useState(false);
+  const [pile, setPile] = useState<PileFilter>("all");
   const fileRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const templatesRef = useRef<HTMLElement>(null);
@@ -49,13 +55,23 @@ export function Home() {
       ? category
       : null;
 
+  const piles = useMemo(() => {
+    const names = new Set<string>([THIS_WEEK]);
+    for (const d of designs) {
+      if (d.folder) names.add(d.folder);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [designs]);
+
   const filteredDesigns = useMemo(() => {
     return designs.filter((d) => {
       if (q && !d.name.toLowerCase().includes(q)) return false;
       if (sizeGroup && !designMatchesGroup(d, sizeGroup)) return false;
+      if (pile === "unfiled" && d.folder) return false;
+      if (pile !== "all" && pile !== "unfiled" && d.folder !== pile) return false;
       return true;
     });
-  }, [designs, q, sizeGroup]);
+  }, [designs, q, sizeGroup, pile]);
 
   const filteredTemplates = useMemo(() => {
     return TEMPLATES.filter((t) => {
@@ -150,8 +166,11 @@ export function Home() {
           />
         ) : (
           <>
-        <header className="home-hero">
-          <h1 className="home-hero-title">Leave a mark.</h1>
+        <header className={user ? "home-hero home-hero-signed" : "home-hero"}>
+          <h1 className={user ? "home-hero-title home-hero-hello" : "home-hero-title"}>
+            {user ? `Hello, ${accountFirstName(user)}` : "Leave a mark."}
+          </h1>
+          {user && <p className="home-hero-mark">Leave a mark.</p>}
           <p className="home-hero-sub">
             {user
               ? "Paper, type, and work that follows your Google account."
@@ -216,6 +235,46 @@ export function Home() {
                   </button>
                 )}
               </div>
+              <div className="pile-row">
+                <button type="button" className={pile === "all" ? "pile-chip on" : "pile-chip"} onClick={() => setPile("all")}>
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={pile === "unfiled" ? "pile-chip on" : "pile-chip"}
+                  onClick={() => setPile("unfiled")}
+                >
+                  Unfiled
+                </button>
+                {piles.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className={pile === name ? "pile-chip on" : "pile-chip"}
+                    onClick={() => setPile(name)}
+                    onDoubleClick={() => {
+                      const next = window.prompt("Rename pile", name)?.trim();
+                      if (next) void useDocumentStore.getState().renameFolder(name, next);
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="pile-chip"
+                  onClick={() => {
+                    const next = window.prompt("New pile name")?.trim();
+                    if (next) setPile(next.slice(0, 80));
+                  }}
+                >
+                  + Pile
+                </button>
+              </div>
+              <YourColors
+                colors={brandDefaults}
+                onChange={(colors) => void useDocumentStore.getState().setBrandDefaults(colors)}
+              />
               {filteredDesigns.length === 0 ? (
                 <p className="home-muted">
                   {q ? `No designs match “${query.trim()}”.` : "Your recent work will show up here."}
@@ -223,7 +282,7 @@ export function Home() {
               ) : (
                 <div className={recentsExpanded ? "home-row wrap" : "home-row"}>
                   {filteredDesigns.map((d) => (
-                    <DesignCard key={d.id} design={d} />
+                    <DesignCard key={d.id} design={d} piles={piles} />
                   ))}
                 </div>
               )}
@@ -274,7 +333,7 @@ function relativeEdited(ts: number): string {
   return `Edited ${mo} month${mo === 1 ? "" : "s"}.`;
 }
 
-function DesignCard({ design }: { design: Design }) {
+function DesignCard({ design, piles }: { design: Design; piles: string[] }) {
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -350,6 +409,39 @@ function DesignCard({ design }: { design: Design }) {
                 >
                   Duplicate
                 </button>
+                {piles.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => {
+                      void useDocumentStore.getState().setListedFolder(design.id, name);
+                      setMenu(false);
+                    }}
+                  >
+                    Move to {name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = window.prompt("New pile name")?.trim();
+                    if (next) void useDocumentStore.getState().setListedFolder(design.id, next.slice(0, 80));
+                    setMenu(false);
+                  }}
+                >
+                  New pile…
+                </button>
+                {design.folder ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void useDocumentStore.getState().setListedFolder(design.id, undefined);
+                      setMenu(false);
+                    }}
+                  >
+                    Remove from pile
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="danger"
@@ -367,6 +459,14 @@ function DesignCard({ design }: { design: Design }) {
       </div>
     </article>
   );
+}
+
+function accountFirstName(user: { displayName: string | null; email: string | null }): string {
+  const display = user.displayName?.trim();
+  if (display) return display.split(/\s+/)[0] ?? display;
+  const local = user.email?.split("@")[0]?.trim();
+  if (local) return local;
+  return "there";
 }
 
 function TemplateCard({ template }: { template: TemplateDef }) {
