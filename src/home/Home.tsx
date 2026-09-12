@@ -110,10 +110,11 @@ export function Home() {
     void useDocumentStore.getState().createFromImageFile(file);
   }
 
-  const showRecents = heroTab === "home";
+  const showRecents = heroTab === "home" && Boolean(user);
+  const guest = !user;
 
   return (
-    <div className="home">
+    <div className={guest ? "home home-guest" : "home"}>
       <nav className="home-rail" aria-label="Home">
         <div className="home-rail-mark" aria-hidden>
           I
@@ -166,7 +167,8 @@ export function Home() {
           />
         ) : (
           <>
-        <header className="home-hero">
+        <header className={guest ? "home-hero home-hero-discover" : "home-hero"}>
+          {guest && <p className="home-hero-kicker">Logged out</p>}
           <h1 className={user ? "home-hero-title home-hero-hello" : "home-hero-title"}>
             {user ? `Hello, ${accountFirstName(user)}` : "Leave a mark."}
           </h1>
@@ -174,36 +176,46 @@ export function Home() {
           <p className="home-hero-sub">
             {user
               ? "Paper, type, and work that follows your Google account."
-              : "Paper, type, and work that stays on this device. Sign in to keep designs with your account."}
+              : "Browse templates and start on this device. Sign in when you want the work to follow you."}
           </p>
+          {guest && (
+            <div className="home-hero-actions">
+              <button type="button" className="home-hero-cta" onClick={() => openCreateScreen("foryou")}>
+                Start designing
+              </button>
+            </div>
+          )}
           <AccountMenu variant="hero" />
-          <div className="home-hero-tabs" role="tablist" aria-label="Home sections">
-            <button
-              type="button"
-              role="tab"
-              aria-selected
-              className="active"
-              onClick={() => setHeroTab("home")}
-            >
-              Home
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={false}
-              onClick={() => openCreateScreen("foryou")}
-            >
-              Templates
-            </button>
-          </div>
+          {guest && <DiscoverStage />}
+          {user && (
+            <div className="home-hero-tabs" role="tablist" aria-label="Home sections">
+              <button
+                type="button"
+                role="tab"
+                aria-selected
+                className="active"
+                onClick={() => setHeroTab("home")}
+              >
+                Home
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={false}
+                onClick={() => openCreateScreen("foryou")}
+              >
+                Templates
+              </button>
+            </div>
+          )}
           <label className="home-search">
             <SearchIcon />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search anything"
-              aria-label="Search designs and templates"
+              placeholder={guest ? "Search templates" : "Search anything"}
+              aria-label={guest ? "Search templates" : "Search designs and templates"}
             />
           </label>
           <div className="home-cats" role="list">
@@ -289,23 +301,45 @@ export function Home() {
             </section>
           )}
 
-          <section className="home-section" ref={templatesRef} id="home-templates">
-            <div className="home-section-head">
-              <h2>{q ? "Templates" : "Templates for you"}</h2>
-              <button type="button" className="home-see-all" onClick={() => openCreateScreen(sizeGroup ?? "foryou")}>
-                See all
-              </button>
-            </div>
-            {filteredTemplates.length === 0 ? (
-              <p className="home-muted">No templates match{query.trim() ? ` “${query.trim()}”` : ""}.</p>
-            ) : (
-              <div className="home-row">
-                {filteredTemplates.map((t) => (
-                  <TemplateCard key={t.id} template={t} />
-                ))}
+          {guest ? (
+            <DiscoverFeed
+              query={query}
+              templates={filteredTemplates}
+              onSeeAll={(nav) => openCreateScreen(nav)}
+            />
+          ) : (
+            <section className="home-section" ref={templatesRef} id="home-templates">
+              <div className="home-section-head">
+                <h2>{q ? "Templates" : "Templates for you"}</h2>
+                <button type="button" className="home-see-all" onClick={() => openCreateScreen(sizeGroup ?? "foryou")}>
+                  See all
+                </button>
               </div>
-            )}
-          </section>
+              {filteredTemplates.length === 0 ? (
+                <p className="home-muted">No templates match{query.trim() ? ` “${query.trim()}”` : ""}.</p>
+              ) : (
+                <div className="home-row">
+                  {filteredTemplates.map((t) => (
+                    <TemplateCard key={t.id} template={t} />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+          {guest && designs.length > 0 && (
+            <section className="home-section">
+              <div className="home-section-head">
+                <h2>On this device</h2>
+              </div>
+              <div className="home-row">
+                {designs
+                  .filter((d) => !q || d.name.toLowerCase().includes(q))
+                  .map((d) => (
+                    <DesignCard key={d.id} design={d} piles={piles} />
+                  ))}
+              </div>
+            </section>
+          )}
         </main>
           </>
         )}
@@ -458,6 +492,128 @@ function DesignCard({ design, piles }: { design: Design; piles: string[] }) {
         </div>
       </div>
     </article>
+  );
+}
+
+const STAGE_IDS = ["workshop-poster", "midnight-quote", "paper-talk", "launch-story", "simple-site"] as const;
+
+const FEATURED_IDS = [
+  "paper-talk",
+  "ink-square",
+  "studio-poster",
+  "quiet-invite",
+  "midnight-quote",
+  "simple-site",
+  "band-tee",
+  "workshop-poster",
+  "studio-note",
+  "keynote-title",
+];
+
+const DISCOVER_ROWS: { title: string; nav: CreateNavId; group: SizeGroup }[] = [
+  { title: "Presentations", nav: "presentation", group: "presentation" },
+  { title: "Social", nav: "social", group: "social" },
+  { title: "Print", nav: "print", group: "print" },
+  { title: "Sites", nav: "site", group: "site" },
+  { title: "Email", nav: "email", group: "email" },
+];
+
+function DiscoverStage() {
+  const frames = useMemo(
+    () =>
+      STAGE_IDS.flatMap((id, index) => {
+        const template = TEMPLATES.find((t) => t.id === id);
+        if (!template) return [];
+        return [{ template, page: template.build()[0], index }];
+      }),
+    [],
+  );
+
+  return (
+    <div className="discover-stage" aria-label="Featured templates">
+      {frames.map(({ template, page, index }) => (
+        <button
+          key={template.id}
+          type="button"
+          className={`discover-frame discover-frame-${index + 1}`}
+          onClick={() => void useDocumentStore.getState().createFromTemplate(template.id)}
+          aria-label={`Start from ${template.name}`}
+        >
+          {page && (
+            <MiniPreview width={template.width} height={template.height} background={page.background} objects={page.objects} />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DiscoverFeed({
+  query,
+  templates,
+  onSeeAll,
+}: {
+  query: string;
+  templates: TemplateDef[];
+  onSeeAll: (nav: CreateNavId) => void;
+}) {
+  const q = query.trim();
+  if (q) {
+    return (
+      <section className="home-section">
+        <div className="home-section-head">
+          <h2>Templates</h2>
+        </div>
+        {templates.length === 0 ? (
+          <p className="home-muted">No templates match “{q}”.</p>
+        ) : (
+          <div className="home-row wrap">
+            {templates.map((t) => (
+              <TemplateCard key={t.id} template={t} />
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  const featured = FEATURED_IDS.map((id) => TEMPLATES.find((t) => t.id === id)).filter((t): t is TemplateDef => Boolean(t));
+
+  return (
+    <>
+      <section className="home-section">
+        <div className="home-section-head">
+          <h2>Start from a template</h2>
+          <button type="button" className="home-see-all" onClick={() => onSeeAll("foryou")}>
+            See all
+          </button>
+        </div>
+        <div className="home-row wrap discover-grid">
+          {featured.map((t) => (
+            <TemplateCard key={t.id} template={t} />
+          ))}
+        </div>
+      </section>
+      {DISCOVER_ROWS.map((row) => {
+        const items = TEMPLATES.filter((t) => t.category === row.group);
+        if (items.length === 0) return null;
+        return (
+          <section key={row.group} className="home-section">
+            <div className="home-section-head">
+              <h2>{row.title}</h2>
+              <button type="button" className="home-see-all" onClick={() => onSeeAll(row.nav)}>
+                See all
+              </button>
+            </div>
+            <div className="home-row">
+              {items.map((t) => (
+                <TemplateCard key={t.id} template={t} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </>
   );
 }
 

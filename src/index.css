@@ -83,7 +83,7 @@ button {
   background: var(--ink);
   color: var(--paper);
   font-family: var(--serif);
-  font-size: 16px;
+    font-size: 16px;
   border-radius: 4px;
 }
 
@@ -351,6 +351,155 @@ button {
   font-weight: 500;
   letter-spacing: -0.03em;
   color: var(--ink);
+}
+
+.home-hero-discover {
+  padding: 56px 40px 36px;
+}
+
+.home-hero-discover .home-hero-title {
+  font-size: clamp(40px, 5.4vw, 64px);
+}
+
+.home-hero-kicker {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.home-hero-actions {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 10px;
+}
+
+.home-hero-cta {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.home-hero-cta:hover {
+  background: var(--ink-2);
+}
+
+.home-hero-discover .home-hero-auth {
+  margin: 0 0 8px;
+}
+
+.home-hero-discover .google-btn {
+  background: transparent;
+  box-shadow: none;
+}
+
+.discover-stage {
+  position: relative;
+  width: min(960px, 100%);
+  height: min(42vw, 360px);
+  min-height: 240px;
+  margin: 28px auto 12px;
+}
+
+.discover-frame {
+  position: absolute;
+  padding: 8px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(26, 22, 20, 0.14);
+  overflow: hidden;
+}
+
+.discover-frame .mini {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 230px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.discover-frame-1 {
+  left: 2%;
+  top: 16%;
+  width: 24%;
+  transform: rotate(-8deg);
+  z-index: 2;
+}
+
+.discover-frame-2 {
+  left: 22%;
+  top: 4%;
+  width: 20%;
+  transform: rotate(-3deg);
+  z-index: 3;
+}
+
+.discover-frame-3 {
+  left: 38%;
+  top: 10%;
+  width: 30%;
+  transform: rotate(1.5deg);
+  z-index: 5;
+}
+
+.discover-frame-4 {
+  left: 64%;
+  top: 2%;
+  width: 14%;
+  transform: rotate(6deg);
+  z-index: 4;
+}
+
+.discover-frame-5 {
+  left: 74%;
+  top: 22%;
+  width: 24%;
+  transform: rotate(7deg);
+  z-index: 3;
+}
+
+.discover-frame:hover {
+  z-index: 8;
+  filter: brightness(1.02);
+}
+
+@media (max-width: 820px) {
+  .discover-frame-1,
+  .discover-frame-5 {
+    display: none;
+  }
+
+  .discover-frame-2 {
+    left: 6%;
+    width: 30%;
+  }
+
+  .discover-frame-3 {
+    left: 32%;
+    width: 38%;
+  }
+
+  .discover-frame-4 {
+    left: 68%;
+    width: 22%;
+  }
+
+  .discover-stage {
+    height: 240px;
+    min-height: 200px;
+  }
+}
+
+.discover-grid .home-tpl-card {
+  flex: 0 0 calc(20% - 13px);
 }
 
 .home-hero-hello {
@@ -1250,7 +1399,7 @@ button {
 
 .create-section h2 {
   margin: 0 0 14px;
-  font-size: 20px;
+    font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
