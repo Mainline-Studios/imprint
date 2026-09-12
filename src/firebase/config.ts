@@ -9,12 +9,12 @@ const fromEnv = {
 
 /** Firebase web config (apiKey is expected in client apps). Named Firestore DB: imprint. */
 export const firebaseConfig = {
-  apiKey: fromEnv.apiKey || "AIzaSyA3Bvb7g746iSimxUGYy39qKeYGUqgoSO0",
-  authDomain: fromEnv.authDomain || "project-5f017fe6-68a5-4a72-b2a.firebaseapp.com",
-  projectId: fromEnv.projectId || "project-5f017fe6-68a5-4a72-b2a",
-  storageBucket: fromEnv.storageBucket || "project-5f017fe6-68a5-4a72-b2a.firebasestorage.app",
-  messagingSenderId: fromEnv.messagingSenderId || "560955070493",
-  appId: fromEnv.appId || "1:560955070493:web:a4191e7635ee2f0089cef4",
+  apiKey: fromEnv.apiKey || "AIzaSyA9EsKDY-WUiQy4xWUrfEfsTqMlyRXn4Vk",
+  authDomain: fromEnv.authDomain || "imprint-designs.firebaseapp.com",
+  projectId: fromEnv.projectId || "imprint-designs",
+  storageBucket: fromEnv.storageBucket || "imprint-designs.firebasestorage.app",
+  messagingSenderId: fromEnv.messagingSenderId || "612962355524",
+  appId: fromEnv.appId || "1:612962355524:web:0db9cdac22c7184ec36f11",
 };
 
 export const FIRESTORE_DATABASE_ID = "imprint";

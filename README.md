@@ -10,7 +10,7 @@ Local: `npm install` then `npm run dev`.
 
 ## Turn on Google sign-in
 
-If the Google popup says the provider is disabled, in the [Firebase console](https://console.firebase.google.com/project/project-5f017fe6-68a5-4a72-b2a/authentication/providers):
+If the Google popup says the provider is disabled, in the [Firebase console](https://console.firebase.google.com/project/imprint-designs/authentication/providers):
 
 1. Open **Authentication** → **Sign-in method**.
 2. Click **Google**.
@@ -18,4 +18,4 @@ If the Google popup says the provider is disabled, in the [Firebase console](htt
 
 Also add these **Authorized domains** (hostname only, no `https://` or port): `localhost` and `bdawgsawesome1-mainlinestudiosofficial.github.io`.
 
-Firebase project id: `project-5f017fe6-68a5-4a72-b2a` (existing “My First Project”; a new `imprint-studio` project could not be created because this Google account is at its Cloud project quota). Firestore database id: `imprint`.
+Firebase project id: `imprint-designs` (display name: Imprint Designs). Sign-in domain: `imprint-designs.firebaseapp.com`. Firestore database id: `imprint`.
