@@ -6,11 +6,25 @@ import { TEMPLATES } from "../templates/catalog";
 import { SHOWCASE } from "./showcase";
 import { AccountMenu } from "../auth/AccountMenu";
 import { useAuth } from "../auth/AuthProvider";
-import { YourColors } from "../inspector/ColorField";
+import { DesignCard } from "./DesignCard";
+import { ProfileScreen } from "./Profile";
 import { TemplatesScreen, type CreateNavId } from "./TemplatesScreen";
 import type { Design, TemplateDef } from "../types";
 
-type HeroTab = "home" | "templates";
+type HeroTab = "home" | "templates" | "profile";
+
+function profileFromHash(): boolean {
+  const raw = window.location.hash.replace(/^#/, "").replace(/^\/+/, "");
+  return raw === "profile";
+}
+
+function writeProfileHash(on: boolean) {
+  const { pathname, search } = window.location;
+  const isProfile = profileFromHash();
+  if (on && !isProfile) window.location.hash = "/profile";
+  if (!on && isProfile) history.replaceState(null, "", `${pathname}${search}`);
+}
+
 type CategoryId = "templates" | "presentation" | "social" | "print" | "site" | "email" | "custom" | "upload";
 type SizeGroup = "social" | "presentation" | "print" | "site" | "email";
 type PileFilter = "all" | "unfiled" | string;
@@ -31,9 +45,8 @@ const CATEGORIES: { id: CategoryId; label: string; color: string }[] = [
 export function Home() {
   const { user } = useAuth();
   const designs = useDocumentStore((s) => s.designs);
-  const brandDefaults = useDocumentStore((s) => s.brandDefaults);
   const [query, setQuery] = useState("");
-  const [heroTab, setHeroTab] = useState<HeroTab>("home");
+  const [heroTab, setHeroTab] = useState<HeroTab>(() => (profileFromHash() ? "profile" : "home"));
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [createNav, setCreateNav] = useState<CreateNavId>("foryou");
   const [recentsExpanded, setRecentsExpanded] = useState(false);
@@ -45,6 +58,27 @@ export function Home() {
   useEffect(() => {
     void useDocumentStore.getState().loadHome();
   }, []);
+
+  useEffect(() => {
+    function sync() {
+      if (profileFromHash()) setHeroTab("profile");
+      else setHeroTab((tab) => (tab === "profile" ? "home" : tab));
+    }
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  function goHome() {
+    setHeroTab("home");
+    setCategory(null);
+    writeProfileHash(false);
+    stageRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goProfile() {
+    setHeroTab("profile");
+    writeProfileHash(true);
+  }
 
   const q = query.trim().toLowerCase();
   const sizeGroup: SizeGroup | null =
@@ -85,6 +119,7 @@ export function Home() {
   function openCreateScreen(nav: CreateNavId = "foryou") {
     setCreateNav(nav);
     setHeroTab("templates");
+    writeProfileHash(false);
     setCategory(nav === "foryou" ? "templates" : nav === "tshirt" ? "print" : nav === "upload" ? "upload" : nav);
   }
 
@@ -127,11 +162,7 @@ export function Home() {
         <button
           type="button"
           className={heroTab === "home" ? "home-rail-btn active" : "home-rail-btn"}
-          onClick={() => {
-            setHeroTab("home");
-            setCategory(null);
-            stageRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+          onClick={goHome}
         >
           <HomeIcon />
           <span>Home</span>
@@ -139,20 +170,26 @@ export function Home() {
         <button
           type="button"
           className={heroTab === "templates" ? "home-rail-btn active" : "home-rail-btn"}
-          onClick={() => {
-            setHeroTab("templates");
-            setCreateNav("foryou");
-            setCategory("templates");
-          }}
+          onClick={() => openCreateScreen("foryou")}
         >
           <GridIcon />
           <span>Templates</span>
         </button>
-        <AccountMenu variant="rail" />
+        <button
+          type="button"
+          className={heroTab === "profile" ? "home-rail-btn active" : "home-rail-btn"}
+          onClick={goProfile}
+        >
+          <ProfileIcon />
+          <span>Profile</span>
+        </button>
+        <AccountMenu variant="rail" onProfile={goProfile} />
       </nav>
 
       <div className="home-stage" ref={stageRef}>
-        {heroTab === "templates" ? (
+        {heroTab === "profile" ? (
+          <ProfileScreen piles={piles} />
+        ) : heroTab === "templates" ? (
           <TemplatesScreen
             query={query}
             onQuery={setQuery}
@@ -193,22 +230,14 @@ export function Home() {
           {guest && <DiscoverStage />}
           {user && (
             <div className="home-hero-tabs" role="tablist" aria-label="Home sections">
-              <button
-                type="button"
-                role="tab"
-                aria-selected
-                className="active"
-                onClick={() => setHeroTab("home")}
-              >
+              <button type="button" role="tab" aria-selected className="active" onClick={goHome}>
                 Home
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={false}
-                onClick={() => openCreateScreen("foryou")}
-              >
+              <button type="button" role="tab" aria-selected={false} onClick={() => openCreateScreen("foryou")}>
                 Templates
+              </button>
+              <button type="button" role="tab" aria-selected={false} onClick={goProfile}>
+                Profile
               </button>
             </div>
           )}
@@ -287,10 +316,6 @@ export function Home() {
                   + Pile
                 </button>
               </div>
-              <YourColors
-                colors={brandDefaults}
-                onChange={(colors) => void useDocumentStore.getState().setBrandDefaults(colors)}
-              />
               {filteredDesigns.length === 0 ? (
                 <p className="home-muted">
                   {q ? `No designs match “${query.trim()}”.` : "Your recent work will show up here."}
@@ -356,147 +381,6 @@ export function Home() {
 
 function designMatchesGroup(design: Design, group: SizeGroup): boolean {
   return SIZE_PRESETS.some((p) => p.group === group && p.width === design.width && p.height === design.height);
-}
-
-function relativeEdited(ts: number): string {
-  const sec = Math.max(0, Math.round((Date.now() - ts) / 1000));
-  if (sec < 45) return "Edited just now";
-  const min = Math.round(sec / 60);
-  if (min < 60) return `Edited ${min} m.`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `Edited ${hr} hr.`;
-  const day = Math.round(hr / 24);
-  if (day < 30) return `Edited ${day} da.`;
-  const mo = Math.round(day / 30);
-  return `Edited ${mo} month${mo === 1 ? "" : "s"}.`;
-}
-
-function DesignCard({ design, piles }: { design: Design; piles: string[] }) {
-  const [menu, setMenu] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const page = design.pages[0];
-
-  useEffect(() => {
-    if (!menu) return;
-    function onDoc(e: MouseEvent) {
-      if (wrapRef.current?.contains(e.target as Node)) return;
-      setMenu(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [menu]);
-
-  return (
-    <article className="design-card">
-      <button
-        type="button"
-        className="design-thumb"
-        onClick={() => void useDocumentStore.getState().openDesign(design.id)}
-      >
-        {page && (
-          <MiniPreview width={design.width} height={design.height} background={page.background} objects={page.objects} />
-        )}
-      </button>
-      <div className="design-meta">
-        {renaming ? (
-          <input
-            className="rename-input"
-            defaultValue={design.name}
-            autoFocus
-            onBlur={(e) => {
-              const name = e.target.value.trim() || "Untitled";
-              void useDocumentStore.getState().renameListed(design.id, name);
-              setRenaming(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") setRenaming(false);
-            }}
-          />
-        ) : (
-          <button type="button" className="design-name" onClick={() => void useDocumentStore.getState().openDesign(design.id)}>
-            {design.name}
-          </button>
-        )}
-        <div className="design-sub">
-          <span>
-            {presetLabel(design.width, design.height)} · {relativeEdited(design.updatedAt)}
-          </span>
-          <div className="card-menu-wrap" ref={wrapRef}>
-            <button type="button" className="icon-btn" aria-label="Design menu" onClick={() => setMenu((v) => !v)}>
-              ···
-            </button>
-            {menu && (
-              <div className="menu" role="menu">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRenaming(true);
-                    setMenu(false);
-                  }}
-                >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void useDocumentStore.getState().duplicateDesign(design.id);
-                    setMenu(false);
-                  }}
-                >
-                  Duplicate
-                </button>
-                {piles.map((name) => (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => {
-                      void useDocumentStore.getState().setListedFolder(design.id, name);
-                      setMenu(false);
-                    }}
-                  >
-                    Move to {name}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = window.prompt("New pile name")?.trim();
-                    if (next) void useDocumentStore.getState().setListedFolder(design.id, next.slice(0, 80));
-                    setMenu(false);
-                  }}
-                >
-                  New pile…
-                </button>
-                {design.folder ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void useDocumentStore.getState().setListedFolder(design.id, undefined);
-                      setMenu(false);
-                    }}
-                  >
-                    Remove from pile
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="danger"
-                  onClick={() => {
-                    void useDocumentStore.getState().deleteDesign(design.id);
-                    setMenu(false);
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </article>
-  );
 }
 
 const STAGE_WORK = SHOWCASE.slice(0, 5);
@@ -658,6 +542,21 @@ function GridIcon() {
       <rect x="13" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
       <rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
       <rect x="13" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M5.5 19.2c.8-3.2 3.3-5 6.5-5s5.7 1.8 6.5 5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

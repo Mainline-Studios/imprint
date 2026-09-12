@@ -270,6 +270,17 @@ button {
   gap: 8px;
 }
 
+.account-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
 .account-avatar {
   width: 28px;
   height: 28px;
@@ -707,6 +718,228 @@ button {
   margin: 0 auto;
 }
 
+.profile-page {
+  padding: 32px 40px 64px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.profile-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--ink);
+  color: var(--paper);
+  display: grid;
+  place-items: center;
+  font-family: var(--serif);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.profile-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.profile-identity {
+  min-width: 0;
+}
+
+.profile-identity h1 {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 32px;
+  letter-spacing: -0.03em;
+}
+
+.profile-meta,
+.profile-lead {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.profile-lead {
+  margin: 0 0 12px;
+  max-width: 42em;
+}
+
+.profile-actions {
+  margin-left: auto;
+}
+
+.profile-colors {
+  margin-bottom: 8px;
+  max-width: 560px;
+}
+
+.profile-search input {
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--chrome);
+  padding: 0 14px;
+  font-size: 13px;
+  min-width: 180px;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-stats li {
+  padding: 12px 14px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.profile-stats strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.profile-stats span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profile-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.profile-status {
+  margin: 0 0 16px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.profile-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.profile-design-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-sort {
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--chrome);
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.pile-chip em {
+  font-style: normal;
+  margin-left: 6px;
+  opacity: 0.6;
+}
+
+.profile-uploads {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.profile-upload {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #eeeaf6;
+  border-radius: 12px;
+}
+
+.profile-upload-thumb {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f1f8;
+}
+
+.profile-upload-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-upload-meta {
+  min-width: 0;
+}
+
+.profile-upload-meta strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-upload-meta span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profile-page .home-section {
+  margin-top: 20px;
+}
+
+@media (max-width: 720px) {
+  .profile-page {
+    padding: 24px 20px 48px;
+  }
+
+  .profile-head {
+    flex-wrap: wrap;
+  }
+
+  .profile-actions {
+    margin-left: 0;
+  }
+}
+
 .home-section {
   margin-top: 28px;
   scroll-margin-top: 24px;
@@ -954,7 +1187,17 @@ button {
   position: relative;
   width: 100%;
   overflow: hidden;
-  background: #fff;
+  contain: paint;
+  isolation: isolate;
+  background: transparent;
+}
+
+.mini-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  pointer-events: none;
 }
 
 /* Modal */

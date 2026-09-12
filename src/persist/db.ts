@@ -71,3 +71,8 @@ export async function listAssets(): Promise<AssetRecord[]> {
   const all = await db.getAll("assets");
   return all.sort((a, b) => b.createdAt - a.createdAt);
 }
+
+export async function deleteAssetRecord(id: string): Promise<void> {
+  const db = await getDb();
+  await db.delete("assets", id);
+}

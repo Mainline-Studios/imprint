@@ -18,6 +18,10 @@ export const SIZE_PRESETS: SizePreset[] = [
   { id: "email-long", name: "Email long", width: 600, height: 1200, group: "email" },
 ];
 
+export function presetGroup(width: number, height: number): SizePreset["group"] | "custom" {
+  return SIZE_PRESETS.find((p) => p.width === width && p.height === height)?.group ?? "custom";
+}
+
 export function presetLabel(width: number, height: number, group?: SizePreset["group"]): string {
   const match = SIZE_PRESETS.find(
     (p) => p.width === width && p.height === height && (group == null || p.group === group),

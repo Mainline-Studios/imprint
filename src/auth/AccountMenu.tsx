@@ -2,7 +2,7 @@ import { useAuth } from "./AuthProvider";
 
 type Variant = "rail" | "hero" | "topbar";
 
-export function AccountMenu({ variant }: { variant: Variant }) {
+export function AccountMenu({ variant, onProfile }: { variant: Variant; onProfile?: () => void }) {
   const { user, ready, error, signInGoogle, signOutUser } = useAuth();
 
   if (!ready) return variant === "rail" ? <div className="home-rail-account" /> : null;
@@ -64,9 +64,14 @@ export function AccountMenu({ variant }: { variant: Variant }) {
   if (variant === "rail") {
     return (
       <div className="home-rail-account">
-        <button type="button" className="home-rail-btn" onClick={() => void signOutUser()} title={`${name} — Sign out`}>
+        <button
+          type="button"
+          className="home-rail-btn"
+          onClick={() => (onProfile ? onProfile() : void signOutUser())}
+          title={name}
+        >
           {photo ? <img className="account-avatar" src={photo} alt="" referrerPolicy="no-referrer" /> : <span className="account-avatar fallback">{initials(name)}</span>}
-          <span>Sign out</span>
+          <span>You</span>
         </button>
       </div>
     );
@@ -82,10 +87,17 @@ export function AccountMenu({ variant }: { variant: Variant }) {
 
   return (
     <div className="account-cluster">
-      {photo ? <img className="account-avatar" src={photo} alt="" referrerPolicy="no-referrer" /> : <span className="account-avatar fallback">{initials(name)}</span>}
-      <span className="account-name" title={name}>
-        {name}
-      </span>
+      <button
+        type="button"
+        className="account-open"
+        onClick={() => (onProfile ? onProfile() : undefined)}
+        title={onProfile ? "Open profile" : name}
+      >
+        {photo ? <img className="account-avatar" src={photo} alt="" referrerPolicy="no-referrer" /> : <span className="account-avatar fallback">{initials(name)}</span>}
+        <span className="account-name" title={name}>
+          {name}
+        </span>
+      </button>
       <button type="button" className="icon-btn" onClick={() => void signOutUser()}>
         Sign out
       </button>

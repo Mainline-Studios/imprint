@@ -12,10 +12,11 @@ import {
   ensureShirtDesign,
 } from "../lib/shirt";
 import { isHtmlCanvas, isTshirtSize } from "../templates/presets";
-import { getDesign, listAssets } from "../persist/db";
+import { getAsset, getDesign, listAssets, deleteAssetRecord } from "../persist/db";
 import { persistAsset } from "../persist/assets";
 import { loadBrandColors, saveBrandColors } from "../persist/brand";
 import { hydrateDesigns, removeDesign, saveDesign } from "../persist/save";
+import { applyBackup } from "../persist/backup";
 import { templateById } from "../templates/catalog";
 import { fontOf } from "../fonts/catalog";
 import { textVisualHeight } from "../text/effects";
@@ -146,11 +147,14 @@ export type DocumentState = {
   createBlank: (width: number, height: number, name?: string) => Promise<void>;
   createFromTemplate: (templateId: string) => Promise<void>;
   createFromImageFile: (file: File) => Promise<void>;
+  createFromAsset: (assetId: string) => Promise<void>;
   openDesign: (id: string) => Promise<void>;
   closeToHome: () => Promise<void>;
   deleteDesign: (id: string) => Promise<void>;
   duplicateDesign: (id: string) => Promise<void>;
   renameListed: (id: string, name: string) => Promise<void>;
+  deleteAsset: (id: string) => Promise<void>;
+  importBackup: (file: File) => Promise<{ designs: number; assets: number }>;
 
   setName: (name: string) => void;
   resizeCanvas: (width: number, height: number) => void;
@@ -415,6 +419,55 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       });
     },
 
+    createFromAsset: async (assetId) => {
+      const rec = await getAsset(assetId);
+      if (!rec) return;
+      const img = await loadAssetImage(assetId);
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      const stem = rec.name.replace(/\.[^.]+$/, "").trim();
+      const design: Design = {
+        id: uuid(),
+        name: stem || "Untitled",
+        width,
+        height,
+        updatedAt: Date.now(),
+        pages: [
+          {
+            id: uuid(),
+            background: "#ffffff",
+            objects: [
+              {
+                id: uuid(),
+                type: "image",
+                x: 0,
+                y: 0,
+                width,
+                height,
+                rotation: 0,
+                assetId: rec.id,
+                opacity: 1,
+              },
+            ],
+          },
+        ],
+        ...(get().brandDefaults.length ? { brandColors: [...get().brandDefaults] } : {}),
+      };
+      await saveDesign(design);
+      set({
+        view: "editor",
+        design,
+        currentPageIndex: 0,
+        selectedIds: [],
+        past: [],
+        future: [],
+        editingTextId: null,
+        createOpen: false,
+        savedAt: design.updatedAt,
+        assets: await listAssets(),
+      });
+    },
+
     openDesign: async (id) => {
       const found = await getDesign(id);
       if (!found) return;
@@ -471,6 +524,17 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       if (!found) return;
       await saveDesign({ ...found, name, updatedAt: Date.now() });
       set({ designs: await hydrateDesigns() });
+    },
+
+    deleteAsset: async (id) => {
+      await deleteAssetRecord(id);
+      set({ assets: await listAssets() });
+    },
+
+    importBackup: async (file) => {
+      const result = await applyBackup(file);
+      await get().loadHome();
+      return result;
     },
 
     setName: (name) => {

@@ -111,7 +111,13 @@ export function TopBar() {
         <button type="button" className="icon-btn" onClick={() => void copyShareLink(setToast)} title="Share">
           Share
         </button>
-        <AccountMenu variant="topbar" />
+        <AccountMenu
+          variant="topbar"
+          onProfile={() => {
+            window.location.hash = "/profile";
+            void useDocumentStore.getState().closeToHome();
+          }}
+        />
         <div className="export-wrap" ref={menuRef}>
           <button
             type="button"

@@ -258,14 +258,14 @@ export function overlayTextStyle(obj: TextObject, zoom: number): CSSProperties {
   };
 }
 
-export function previewTextStyle(obj: TextObject, pageHeight: number): CSSProperties {
+export function previewTextStyle(obj: TextObject): CSSProperties {
   const transform = textTransformOf(obj);
   const fs = obj.fontSize;
   const strokeW = strokeWidthOf(obj);
   const style: CSSProperties = {
     color: obj.fill,
     fontFamily: fontOf(obj.fontFamily),
-    fontSize: `${(fs / pageHeight) * 100}%`,
+    fontSize: fs,
     fontWeight: obj.fontWeight,
     textAlign: obj.align,
     lineHeight: lineHeightOf(obj),
