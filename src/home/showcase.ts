@@ -767,6 +767,3 @@ export const SHOWCASE: ShowcaseWork[] = [
   },
 ];
 
-export function showcaseById(id: string): ShowcaseWork | undefined {
-  return SHOWCASE.find((item) => item.id === id);
-}

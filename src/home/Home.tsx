@@ -3,7 +3,7 @@ import { MiniPreview } from "../canvas/MiniPreview";
 import { useDocumentStore } from "../store/document";
 import { SIZE_PRESETS, presetLabel } from "../templates/presets";
 import { TEMPLATES } from "../templates/catalog";
-import { SHOWCASE, type ShowcaseWork } from "./showcase";
+import { SHOWCASE } from "./showcase";
 import { AccountMenu } from "../auth/AccountMenu";
 import { useAuth } from "../auth/AuthProvider";
 import { YourColors } from "../inspector/ColorField";
@@ -516,15 +516,9 @@ function DiscoverStage() {
   );
 
   return (
-    <div className="discover-stage" aria-label="Work from shops">
+    <div className="discover-stage" aria-hidden="true">
       {frames.map(({ work, page, index }) => (
-        <button
-          key={work.id}
-          type="button"
-          className={`discover-frame discover-frame-${index + 1}`}
-          onClick={() => void useDocumentStore.getState().createFromTemplate(work.id)}
-          aria-label={`Open ${work.client}`}
-        >
+        <div key={work.id} className={`discover-frame discover-frame-${index + 1}`}>
           {page && (
             <MiniPreview width={work.width} height={work.height} background={page.background} objects={page.objects} />
           )}
@@ -532,7 +526,7 @@ function DiscoverStage() {
             <strong>{work.client}</strong>
             <span>{work.trade}</span>
           </span>
-        </button>
+        </div>
       ))}
     </div>
   );
@@ -549,41 +543,21 @@ function DiscoverFeed({
 }) {
   const q = query.trim().toLowerCase();
   if (q) {
-    const work = SHOWCASE.filter(
-      (item) =>
-        item.client.toLowerCase().includes(q) ||
-        item.name.toLowerCase().includes(q) ||
-        item.trade.toLowerCase().includes(q),
-    );
     return (
-      <>
-        {work.length > 0 && (
-          <section className="home-section">
-            <div className="home-section-head">
-              <h2>From shops</h2>
-            </div>
-            <div className="home-row wrap discover-grid">
-              {work.map((item) => (
-                <WorkCard key={item.id} work={item} />
-              ))}
-            </div>
-          </section>
-        )}
-        <section className="home-section">
-          <div className="home-section-head">
-            <h2>Templates</h2>
+      <section className="home-section">
+        <div className="home-section-head">
+          <h2>Templates</h2>
+        </div>
+        {templates.length === 0 ? (
+          <p className="home-muted">No templates match “{query.trim()}”.</p>
+        ) : (
+          <div className="home-row wrap">
+            {templates.map((t) => (
+              <TemplateCard key={t.id} template={t} />
+            ))}
           </div>
-          {templates.length === 0 ? (
-            <p className="home-muted">No templates match “{query.trim()}”.</p>
-          ) : (
-            <div className="home-row wrap">
-              {templates.map((t) => (
-                <TemplateCard key={t.id} template={t} />
-              ))}
-            </div>
-          )}
-        </section>
-      </>
+        )}
+      </section>
     );
   }
 
@@ -591,17 +565,7 @@ function DiscoverFeed({
     <>
       <section className="home-section">
         <div className="home-section-head">
-          <h2>Made for businesses</h2>
-        </div>
-        <div className="home-row wrap discover-grid">
-          {SHOWCASE.map((item) => (
-            <WorkCard key={item.id} work={item} />
-          ))}
-        </div>
-      </section>
-      <section className="home-section">
-        <div className="home-section-head">
-          <h2>Or start from a template</h2>
+          <h2>Start from a template</h2>
           <button type="button" className="home-see-all" onClick={() => onSeeAll("foryou")}>
             See all
           </button>
@@ -632,27 +596,6 @@ function DiscoverFeed({
         );
       })}
     </>
-  );
-}
-
-function WorkCard({ work }: { work: ShowcaseWork }) {
-  const page = useMemo(() => work.build()[0], [work]);
-  return (
-    <button
-      type="button"
-      className="home-tpl-card work-card"
-      onClick={() => void useDocumentStore.getState().createFromTemplate(work.id)}
-    >
-      <span className="home-tpl-thumb-wrap">
-        {page && (
-          <MiniPreview width={work.width} height={work.height} background={page.background} objects={page.objects} />
-        )}
-      </span>
-      <strong>{work.client}</strong>
-      <span className="home-tpl-sub">
-        {work.trade} · {work.name}
-      </span>
-    </button>
   );
 }
 

@@ -17,7 +17,6 @@ import { persistAsset } from "../persist/assets";
 import { loadBrandColors, saveBrandColors } from "../persist/brand";
 import { hydrateDesigns, removeDesign, saveDesign } from "../persist/save";
 import { templateById } from "../templates/catalog";
-import { showcaseById } from "../home/showcase";
 import { fontOf } from "../fonts/catalog";
 import { textVisualHeight } from "../text/effects";
 import type {
@@ -337,7 +336,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
     },
 
     createFromTemplate: async (templateId) => {
-      const tpl = templateById(templateId) ?? showcaseById(templateId);
+      const tpl = templateById(templateId);
       if (!tpl) return;
       const design = ensureShirtDesign({
         id: uuid(),
