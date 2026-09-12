@@ -362,10 +362,38 @@ button {
 }
 
 .home-hero-discover .home-hero-sub {
-  max-width: 36em;
+  max-width: 28em;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.45;
+  line-height: 1.5;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+}
+
+.home-hero-rhyme {
+  margin: 0 0 20px;
+}
+
+.home-hero-rhyme .home-hero-offer,
+.home-hero-rhyme .home-hero-sub {
+  margin: 0;
+}
+
+.home-hero-offer {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.home-hero-rhyme .home-hero-sub {
+  margin-top: 4px;
+  max-width: none;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
 }
 
 .home-hero-kicker {

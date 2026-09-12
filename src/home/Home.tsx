@@ -174,11 +174,14 @@ export function Home() {
             {user ? `Hello, ${accountFirstName(user)}` : "Design Trusted by Pros."}
           </h1>
           <p className="home-hero-mark">Leave a mark.</p>
-          <p className="home-hero-sub">
-            {user
-              ? "Paper, type, and work that follows your Google account."
-              : "Posters, Websites, Imprint has it all."}
-          </p>
+          {user ? (
+            <p className="home-hero-sub">Paper, type, and work that follows your Google account.</p>
+          ) : (
+            <div className="home-hero-rhyme">
+              <p className="home-hero-offer">Posters. Websites.</p>
+              <p className="home-hero-sub">All of it, in Imprint.</p>
+            </div>
+          )}
           {guest && (
             <div className="home-hero-actions">
               <button type="button" className="home-hero-cta" onClick={() => openCreateScreen("foryou")}>
