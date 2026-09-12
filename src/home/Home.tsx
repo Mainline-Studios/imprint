@@ -173,7 +173,7 @@ export function Home() {
           <h1 className={user ? "home-hero-title home-hero-hello" : "home-hero-title"}>
             {user ? `Hello, ${accountFirstName(user)}` : "Design Trusted by Pros."}
           </h1>
-          {user && <p className="home-hero-mark">Leave a mark.</p>}
+          <p className="home-hero-mark">Leave a mark.</p>
           <p className="home-hero-sub">
             {user
               ? "Paper, type, and work that follows your Google account."
