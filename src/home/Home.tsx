@@ -3,6 +3,7 @@ import { MiniPreview } from "../canvas/MiniPreview";
 import { useDocumentStore } from "../store/document";
 import { SIZE_PRESETS, presetLabel } from "../templates/presets";
 import { TEMPLATES } from "../templates/catalog";
+import { SHOWCASE, type ShowcaseWork } from "./showcase";
 import { AccountMenu } from "../auth/AccountMenu";
 import { useAuth } from "../auth/AuthProvider";
 import { YourColors } from "../inspector/ColorField";
@@ -168,7 +169,7 @@ export function Home() {
         ) : (
           <>
         <header className={guest ? "home-hero home-hero-discover" : "home-hero"}>
-          {guest && <p className="home-hero-kicker">Logged out</p>}
+          {guest && <p className="home-hero-kicker">Logged out · Discover</p>}
           <h1 className={user ? "home-hero-title home-hero-hello" : "home-hero-title"}>
             {user ? `Hello, ${accountFirstName(user)}` : "Leave a mark."}
           </h1>
@@ -176,7 +177,7 @@ export function Home() {
           <p className="home-hero-sub">
             {user
               ? "Paper, type, and work that follows your Google account."
-              : "Browse templates and start on this device. Sign in when you want the work to follow you."}
+              : "Work from real shops — bakeries, clinics, studios. Remix one, or start blank. Sign in when you want it to follow you."}
           </p>
           {guest && (
             <div className="home-hero-actions">
@@ -495,20 +496,7 @@ function DesignCard({ design, piles }: { design: Design; piles: string[] }) {
   );
 }
 
-const STAGE_IDS = ["workshop-poster", "midnight-quote", "paper-talk", "launch-story", "simple-site"] as const;
-
-const FEATURED_IDS = [
-  "paper-talk",
-  "ink-square",
-  "studio-poster",
-  "quiet-invite",
-  "midnight-quote",
-  "simple-site",
-  "band-tee",
-  "workshop-poster",
-  "studio-note",
-  "keynote-title",
-];
+const STAGE_WORK = SHOWCASE.slice(0, 5);
 
 const DISCOVER_ROWS: { title: string; nav: CreateNavId; group: SizeGroup }[] = [
   { title: "Presentations", nav: "presentation", group: "presentation" },
@@ -520,28 +508,27 @@ const DISCOVER_ROWS: { title: string; nav: CreateNavId; group: SizeGroup }[] = [
 
 function DiscoverStage() {
   const frames = useMemo(
-    () =>
-      STAGE_IDS.flatMap((id, index) => {
-        const template = TEMPLATES.find((t) => t.id === id);
-        if (!template) return [];
-        return [{ template, page: template.build()[0], index }];
-      }),
+    () => STAGE_WORK.map((work, index) => ({ work, page: work.build()[0], index })),
     [],
   );
 
   return (
-    <div className="discover-stage" aria-label="Featured templates">
-      {frames.map(({ template, page, index }) => (
+    <div className="discover-stage" aria-label="Work from shops">
+      {frames.map(({ work, page, index }) => (
         <button
-          key={template.id}
+          key={work.id}
           type="button"
           className={`discover-frame discover-frame-${index + 1}`}
-          onClick={() => void useDocumentStore.getState().createFromTemplate(template.id)}
-          aria-label={`Start from ${template.name}`}
+          onClick={() => void useDocumentStore.getState().createFromTemplate(work.id)}
+          aria-label={`Open ${work.client}`}
         >
           {page && (
-            <MiniPreview width={template.width} height={template.height} background={page.background} objects={page.objects} />
+            <MiniPreview width={work.width} height={work.height} background={page.background} objects={page.objects} />
           )}
+          <span className="discover-caption">
+            <strong>{work.client}</strong>
+            <span>{work.trade}</span>
+          </span>
         </button>
       ))}
     </div>
@@ -557,39 +544,67 @@ function DiscoverFeed({
   templates: TemplateDef[];
   onSeeAll: (nav: CreateNavId) => void;
 }) {
-  const q = query.trim();
+  const q = query.trim().toLowerCase();
   if (q) {
+    const work = SHOWCASE.filter(
+      (item) =>
+        item.client.toLowerCase().includes(q) ||
+        item.name.toLowerCase().includes(q) ||
+        item.trade.toLowerCase().includes(q),
+    );
     return (
-      <section className="home-section">
-        <div className="home-section-head">
-          <h2>Templates</h2>
-        </div>
-        {templates.length === 0 ? (
-          <p className="home-muted">No templates match “{q}”.</p>
-        ) : (
-          <div className="home-row wrap">
-            {templates.map((t) => (
-              <TemplateCard key={t.id} template={t} />
-            ))}
-          </div>
+      <>
+        {work.length > 0 && (
+          <section className="home-section">
+            <div className="home-section-head">
+              <h2>From shops</h2>
+            </div>
+            <div className="home-row wrap discover-grid">
+              {work.map((item) => (
+                <WorkCard key={item.id} work={item} />
+              ))}
+            </div>
+          </section>
         )}
-      </section>
+        <section className="home-section">
+          <div className="home-section-head">
+            <h2>Templates</h2>
+          </div>
+          {templates.length === 0 ? (
+            <p className="home-muted">No templates match “{query.trim()}”.</p>
+          ) : (
+            <div className="home-row wrap">
+              {templates.map((t) => (
+                <TemplateCard key={t.id} template={t} />
+              ))}
+            </div>
+          )}
+        </section>
+      </>
     );
   }
-
-  const featured = FEATURED_IDS.map((id) => TEMPLATES.find((t) => t.id === id)).filter((t): t is TemplateDef => Boolean(t));
 
   return (
     <>
       <section className="home-section">
         <div className="home-section-head">
-          <h2>Start from a template</h2>
+          <h2>Made for businesses</h2>
+        </div>
+        <div className="home-row wrap discover-grid">
+          {SHOWCASE.map((item) => (
+            <WorkCard key={item.id} work={item} />
+          ))}
+        </div>
+      </section>
+      <section className="home-section">
+        <div className="home-section-head">
+          <h2>Or start from a template</h2>
           <button type="button" className="home-see-all" onClick={() => onSeeAll("foryou")}>
             See all
           </button>
         </div>
-        <div className="home-row wrap discover-grid">
-          {featured.map((t) => (
+        <div className="home-row">
+          {TEMPLATES.slice(0, 8).map((t) => (
             <TemplateCard key={t.id} template={t} />
           ))}
         </div>
@@ -614,6 +629,27 @@ function DiscoverFeed({
         );
       })}
     </>
+  );
+}
+
+function WorkCard({ work }: { work: ShowcaseWork }) {
+  const page = useMemo(() => work.build()[0], [work]);
+  return (
+    <button
+      type="button"
+      className="home-tpl-card work-card"
+      onClick={() => void useDocumentStore.getState().createFromTemplate(work.id)}
+    >
+      <span className="home-tpl-thumb-wrap">
+        {page && (
+          <MiniPreview width={work.width} height={work.height} background={page.background} objects={page.objects} />
+        )}
+      </span>
+      <strong>{work.client}</strong>
+      <span className="home-tpl-sub">
+        {work.trade} · {work.name}
+      </span>
+    </button>
   );
 }
 
