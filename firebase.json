@@ -5,12 +5,14 @@
         "oAuthBrandDisplayName": "Imprint Designs",
         "supportEmail": "boehmlaird@gmail.com",
         "authorizedRedirectUris": [
+          "https://mainline-studios.github.io",
           "https://bdawgsawesome1-mainlinestudiosofficial.github.io"
         ]
       }
     },
     "authorizedDomains": [
       "localhost",
+      "mainline-studios.github.io",
       "bdawgsawesome1-mainlinestudiosofficial.github.io"
     ]
   },
