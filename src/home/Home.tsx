@@ -177,7 +177,7 @@ export function Home() {
           <p className="home-hero-sub">
             {user
               ? "Paper, type, and work that follows your Google account."
-              : "Posters, Websites, imprint has it all."}
+              : "Posters, Websites, Imprint has it all."}
           </p>
           {guest && (
             <div className="home-hero-actions">
