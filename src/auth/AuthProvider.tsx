@@ -1,14 +1,19 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { auth, googleProvider } from "../firebase/app";
+import { completeVerifyLinkIfPresent, sendVerifyLink, sendVerifyToUser } from "./emailLink";
+import { requestDeviceStorage } from "../persist/quota";
 import { useDocumentStore } from "../store/document";
 
 export type AuthSnap = {
   user: User | null;
   ready: boolean;
   error: string | null;
+  emailVerified: boolean;
   signInGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
+  sendVerifyEmail: (email?: string) => Promise<void>;
+  reloadUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthSnap | null>(null);
@@ -20,16 +25,40 @@ function messageFor(err: unknown): string {
     return "This site isn’t allowed to sign in yet. Add it under Firebase Authentication → Settings → Authorized domains (hostname only, like localhost).";
   }
   if (code === "auth/operation-not-allowed") {
-    return "Google sign-in is not enabled yet. Turn it on in the Firebase console (Authentication → Sign-in method → Google).";
+    return "That sign-in method isn’t enabled yet. Turn on Google and Email/Password (with Email link) in the Firebase console.";
+  }
+  if (code === "auth/invalid-action-code" || code === "auth/expired-action-code") {
+    return "That verification link is expired. Send a new one from Profile.";
+  }
+  if (code === "auth/invalid-email") return "Enter a valid email.";
+  if (code === "auth/unauthorized-continue-uri") {
+    return "This site isn’t allowed to finish email verification yet. Add it under Firebase Authentication → Settings → Authorized domains.";
   }
   if (err instanceof Error && err.message) return err.message;
-  return "Could not sign in with Google.";
+  return "Could not finish that.";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void requestDeviceStorage();
+    void (async () => {
+      try {
+        if (await completeVerifyLinkIfPresent()) {
+          const next = new URL(window.location.href);
+          next.search = "";
+          if (!next.hash || next.hash === "#") next.hash = "/profile";
+          history.replaceState(null, "", `${next.pathname}${next.search}${next.hash}`);
+        }
+      } catch (err) {
+        const msg = messageFor(err);
+        if (msg) setError(msg);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (next) => {
@@ -45,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       error,
+      emailVerified: Boolean(user?.emailVerified),
       signInGoogle: async () => {
         setError(null);
         try {
@@ -57,6 +87,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOutUser: async () => {
         setError(null);
         await signOut(auth);
+      },
+      sendVerifyEmail: async (email) => {
+        setError(null);
+        try {
+          if (user && !user.emailVerified) {
+            await sendVerifyToUser(user);
+            return;
+          }
+          await sendVerifyLink(email || user?.email || "");
+        } catch (err) {
+          const msg = messageFor(err);
+          if (msg) setError(msg);
+          throw err;
+        }
+      },
+      reloadUser: async () => {
+        if (!auth.currentUser) return;
+        await auth.currentUser.reload();
+        setUser(auth.currentUser);
       },
     }),
     [user, ready, error],

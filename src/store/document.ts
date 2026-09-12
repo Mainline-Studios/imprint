@@ -17,6 +17,7 @@ import { persistAsset } from "../persist/assets";
 import { loadBrandColors, saveBrandColors } from "../persist/brand";
 import { hydrateDesigns, removeDesign, saveDesign } from "../persist/save";
 import { applyBackup } from "../persist/backup";
+import { assertRoom, usageBytes } from "../persist/quota";
 import { templateById } from "../templates/catalog";
 import { fontOf } from "../fonts/catalog";
 import { textVisualHeight } from "../text/effects";
@@ -132,6 +133,7 @@ export type DocumentState = {
   exporting: boolean;
   presenting: boolean;
   brandDefaults: string[];
+  notice: string | null;
 
   loadHome: () => Promise<void>;
   setCreateOpen: (open: boolean) => void;
@@ -155,6 +157,7 @@ export type DocumentState = {
   renameListed: (id: string, name: string) => Promise<void>;
   deleteAsset: (id: string) => Promise<void>;
   importBackup: (file: File) => Promise<{ designs: number; assets: number }>;
+  setNotice: (notice: string | null) => void;
 
   setName: (name: string) => void;
   resizeCanvas: (width: number, height: number) => void;
@@ -211,6 +214,16 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
     return get().design;
   }
 
+  function requireRoom(extra: number): void {
+    try {
+      assertRoom(usageBytes(get().designs, get().assets), extra);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Not enough room on this device.";
+      set({ notice: msg });
+      throw err;
+    }
+  }
+
   function pushHistory(): void {
     const { design, currentPageIndex, selectedIds, past, grouping } = get();
     if (!design || grouping) return;
@@ -257,6 +270,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
     exporting: false,
     presenting: false,
     brandDefaults: [],
+    notice: null,
 
     loadHome: async () => {
       const [designs, assets, brand] = await Promise.all([hydrateDesigns(), listAssets(), loadBrandColors()]);
@@ -266,6 +280,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
     setCreateOpen: (open) => set({ createOpen: open }),
     setExportOpen: (open) => set({ exportOpen: open }),
     setExporting: (v) => set({ exporting: v }),
+    setNotice: (notice) => set({ notice }),
     setSidebarTab: (tab) => set({ sidebarTab: tab }),
     setSpaceDown: (v) => set({ spaceDown: v }),
     setViewport: (w, h) => set({ viewportW: w, viewportH: h }),
@@ -368,6 +383,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
 
     createFromImageFile: async (file) => {
       const { blob, width, height } = await blobFromFile(file);
+      try {
+        requireRoom(blob.size);
+      } catch {
+        return;
+      }
       const asset: AssetRecord = {
         id: uuid(),
         blob,
@@ -532,6 +552,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
     },
 
     importBackup: async (file) => {
+      requireRoom(file.size);
       const result = await applyBackup(file);
       await get().loadHome();
       return result;
@@ -755,6 +776,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       const design = currentDesign();
       if (!design) return;
       const { blob, width, height } = await blobFromFile(file);
+      try {
+        requireRoom(blob.size);
+      } catch {
+        return;
+      }
       const asset: AssetRecord = {
         id: uuid(),
         blob,

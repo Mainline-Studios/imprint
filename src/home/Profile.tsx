@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthProvider";
+import { storedVerifyEmail } from "../auth/emailLink";
 import { YourColors } from "../inspector/ColorField";
 import { DEFAULT_BRAND } from "../lib/fill";
 import { buildBackup } from "../persist/backup";
+import { DEVICE_QUOTA_BYTES, formatBytes, usageBytes } from "../persist/quota";
 import { downloadBlob, slug } from "../export/renderPage";
 import { useDocumentStore } from "../store/document";
 import { SIZE_PRESETS, presetGroup } from "../templates/presets";
@@ -26,7 +28,7 @@ const KIND_FILTERS: { id: KindFilter; label: string }[] = [
 const QUICK_MAKES = ["ig-post", "ig-story", "presentation", "website"] as const;
 
 export function ProfileScreen({ piles }: { piles: string[] }) {
-  const { user, error, signInGoogle, signOutUser } = useAuth();
+  const { user, error, emailVerified, signInGoogle, signOutUser, sendVerifyEmail, reloadUser } = useAuth();
   const designs = useDocumentStore((s) => s.designs);
   const assets = useDocumentStore((s) => s.assets);
   const brandDefaults = useDocumentStore((s) => s.brandDefaults);
@@ -35,7 +37,7 @@ export function ProfileScreen({ piles }: { piles: string[] }) {
   const [pile, setPile] = useState<PileFilter>("all");
   const [sort, setSort] = useState<SortId>("recent");
   const [status, setStatus] = useState<string | null>(null);
-  const [storageLabel, setStorageLabel] = useState("This browser");
+  const usedBytes = useMemo(() => usageBytes(designs, assets), [designs, assets]);
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const photoRef = useRef<HTMLInputElement>(null);
   const backupRef = useRef<HTMLInputElement>(null);
@@ -71,19 +73,6 @@ export function ProfileScreen({ piles }: { piles: string[] }) {
       for (const u of Object.values(next)) URL.revokeObjectURL(u);
     };
   }, [assets]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const estimate = await navigator.storage?.estimate?.();
-      if (cancelled || !estimate?.usage) return;
-      const used = formatBytes(estimate.usage);
-      setStorageLabel(used);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [designs, assets]);
 
   function flash(message: string) {
     setStatus(message);
@@ -182,11 +171,17 @@ export function ProfileScreen({ piles }: { piles: string[] }) {
           <strong>{latest ? compactEdited(latest) : "—"}</strong>
           <span>Last edit</span>
         </li>
-        <li>
-          <strong>{storageLabel}</strong>
-          <span>On this device</span>
-        </li>
       </ul>
+
+      <StoragePanel
+        used={usedBytes}
+        verified={emailVerified}
+        userEmail={email}
+        onSent={(msg) => flash(msg)}
+        sendVerifyEmail={sendVerifyEmail}
+        reloadUser={reloadUser}
+        signInGoogle={signInGoogle}
+      />
 
       <div className="profile-toolbar">
         {QUICK_MAKES.map((id) => {
@@ -383,11 +378,96 @@ function compactEdited(ts: number): string {
   return `${mo} mo`;
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+function StoragePanel({
+  used,
+  verified,
+  userEmail,
+  onSent,
+  sendVerifyEmail,
+  reloadUser,
+  signInGoogle,
+}: {
+  used: number;
+  verified: boolean;
+  userEmail: string | null | undefined;
+  onSent: (msg: string) => void;
+  sendVerifyEmail: (email?: string) => Promise<void>;
+  reloadUser: () => Promise<void>;
+  signInGoogle: () => Promise<void>;
+}) {
+  const [email, setEmail] = useState(userEmail || storedVerifyEmail());
+  const [busy, setBusy] = useState(false);
+  const cap = verified ? null : DEVICE_QUOTA_BYTES;
+  const pct = cap ? Math.min(100, (used / cap) * 100) : Math.min(100, used > 0 ? 4 : 0);
+
+  useEffect(() => {
+    if (userEmail) setEmail(userEmail);
+  }, [userEmail]);
+
+  async function send(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await sendVerifyEmail(email);
+      onSent(`Check ${email.trim() || userEmail || "your inbox"} for a verification link.`);
+    } catch {
+      /* AuthProvider surfaces the error */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="profile-storage">
+      <div className="home-section-head">
+        <h2>Storage</h2>
+        <span>{verified ? "Expanded" : "50 GB per device"}</span>
+      </div>
+      <div
+        className="profile-meter"
+        role="meter"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pct)}
+        aria-label="Storage used"
+      >
+        <span style={{ width: `${pct}%` }} />
+      </div>
+      <p className="profile-lead">
+        {verified
+          ? `${formatBytes(used)} used on this device. Email is verified, so this device’s 50 GB cap is lifted.`
+          : `${formatBytes(used)} of 50 GB. Every device starts at 50 GB. Verify an email to expand past that.`}
+      </p>
+      {verified ? (
+        <p className="profile-meta">{userEmail} is verified.</p>
+      ) : (
+        <form className="profile-verify" onSubmit={(e) => void send(e)}>
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@studio.com"
+              autoComplete="email"
+              required={!userEmail}
+            />
+          </label>
+          <button type="submit" className="btn-primary" disabled={busy}>
+            {busy ? "Sending…" : userEmail && !verified ? "Send verification" : "Verify email"}
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => void signInGoogle()}>
+            Google verifies too
+          </button>
+          {userEmail && !verified && (
+            <button type="button" className="profile-link" onClick={() => void reloadUser()}>
+              I already clicked the link
+            </button>
+          )}
+        </form>
+      )}
+    </section>
+  );
 }
 
 function initials(name: string): string {

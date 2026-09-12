@@ -14,6 +14,7 @@ function shareTokenFromHash(): string | null {
 export default function App() {
   const view = useDocumentStore((s) => s.view);
   const design = useDocumentStore((s) => s.design);
+  const notice = useDocumentStore((s) => s.notice);
   const timer = useRef<number | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(() => shareTokenFromHash());
 
@@ -40,6 +41,24 @@ export default function App() {
     };
   }, [design, view]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const id = window.setTimeout(() => useDocumentStore.getState().setNotice(null), 5000);
+    return () => window.clearTimeout(id);
+  }, [notice]);
+
   if (shareToken) return <ShareView token={shareToken} />;
-  return view === "home" ? <Home /> : <EditorShell />;
+  return (
+    <>
+      {notice && (
+        <div className="app-notice" role="status">
+          <span>{notice}</span>
+          <button type="button" className="icon-btn" onClick={() => useDocumentStore.getState().setNotice(null)}>
+            ×
+          </button>
+        </div>
+      )}
+      {view === "home" ? <Home /> : <EditorShell />}
+    </>
+  );
 }

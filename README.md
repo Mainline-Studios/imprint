@@ -1,6 +1,6 @@
 # Imprint
 
-A free, browser-based design studio. Work stays on this device in IndexedDB. Sign in with Google to keep designs with your account (Firestore).
+A free, browser-based design studio. Work stays in IndexedDB on each device, with **50 GB per device** until you verify an email. Sign in with Google (or an email link) to expand that cap and keep designs with your account (Firestore).
 
 ## Live site
 
@@ -15,6 +15,7 @@ If the Google popup says the provider is disabled, in the [Firebase console](htt
 1. Open **Authentication** → **Sign-in method**.
 2. Click **Google**.
 3. Enable it, pick a support email, and **Save**.
+4. Also enable **Email/Password**, and turn on **Email link (passwordless sign-in)** so Profile can verify an email and lift the 50 GB device cap.
 
 Also add these **Authorized domains** (hostname only, no `https://` or port): `localhost` and `mainline-studios.github.io`.
 
