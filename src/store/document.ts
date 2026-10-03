@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { blobFromFile, loadAssetImage } from "../assets/cache";
 import { cloneDesign, cloneObject, clonePage, remapGroupIds, scalePage } from "../lib/clone";
+import {
+  dropTransitionsTo,
+  pageWithTransitions,
+  remapPageTransitions,
+  removePageTransition,
+  upsertPageTransition,
+} from "../lib/pageTransitions";
 import { clamp } from "../lib/geometry";
 import { uuid } from "../lib/ids";
 import { createButton, createImageObject, createShape, createSticker, createText } from "../lib/objects";
@@ -28,6 +35,7 @@ import type {
   Fill,
   FontFamily,
   Page,
+  PageTransitionKind,
   ShapeKind,
   SidebarTab,
   Snapshot,
@@ -207,6 +215,8 @@ export type DocumentState = {
   setPageIndex: (index: number) => void;
   reorderPages: (from: number, to: number) => void;
   applyTemplateToPage: (templateId: string) => void;
+  setPageTransition: (fromId: string, toId: string, kind: PageTransitionKind, durationMs: number) => void;
+  clearPageTransition: (fromId: string, toId: string) => void;
 };
 
 export const useDocumentStore = create<DocumentState>((set, get) => {
@@ -1019,7 +1029,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       const { design, currentPageIndex } = get();
       if (!design || !canDeleteShirtPage(design, currentPageIndex)) return;
       pushHistory();
-      const pages = design.pages.filter((_, i) => i !== currentPageIndex);
+      const removed = design.pages[currentPageIndex];
+      const pages = dropTransitionsTo(
+        design.pages.filter((_, i) => i !== currentPageIndex),
+        removed?.id ?? "",
+      );
       commit({ ...design, pages }, {
         currentPageIndex: Math.min(currentPageIndex, pages.length - 1),
         selectedIds: [],
@@ -1049,20 +1063,50 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       if (!design || !tpl) return;
       const built = tpl.build();
       const first = built[0];
-      if (!first) return;
-      const scaled = scalePage(first, tpl.width, tpl.height, design.width, design.height);
+      const current = design.pages[currentPageIndex];
+      if (!first || !current) return;
       pushHistory();
-      withPage((page) => ({
-        ...page,
-        background: scaled.background,
-        objects: scaled.objects,
-      }));
-      if (built.length > 1) {
-        const extra = built.slice(1).map((p) => scalePage(p, tpl.width, tpl.height, design.width, design.height));
-        const pages = [...get().design!.pages];
-        pages.splice(currentPageIndex + 1, 0, ...extra);
+      const idMap = new Map<string, string>([[first.id, current.id]]);
+      const scaledFirst = scalePage(first, tpl.width, tpl.height, design.width, design.height);
+      const extras = built.slice(1).map((p) => {
+        const scaled = scalePage(p, tpl.width, tpl.height, design.width, design.height);
+        idMap.set(p.id, scaled.id);
+        return scaled;
+      });
+      const firstTransitions = remapPageTransitions(first.transitions, idMap);
+      withPage((page) => {
+        const next: Page = { ...page, background: scaledFirst.background, objects: scaledFirst.objects };
+        if (firstTransitions?.length) next.transitions = firstTransitions;
+        return next;
+      });
+      if (extras.length > 0) {
+        const extraPages = extras.map((p) => pageWithTransitions(p, remapPageTransitions(p.transitions, idMap) ?? []));
+        const pages = [...(get().design?.pages ?? [])];
+        pages.splice(currentPageIndex + 1, 0, ...extraPages);
         commit({ ...get().design!, pages });
       }
+    },
+
+    setPageTransition: (fromId, toId, kind, durationMs) => {
+      const design = currentDesign();
+      if (!design || fromId === toId) return;
+      if (!design.pages.some((p) => p.id === toId)) return;
+      pushHistory();
+      const pages = design.pages.map((page) =>
+        page.id === fromId ? pageWithTransitions(page, upsertPageTransition(page.transitions, { toId, kind, durationMs })) : page,
+      );
+      commit({ ...design, pages });
+    },
+
+    clearPageTransition: (fromId, toId) => {
+      const design = currentDesign();
+      const source = design?.pages.find((p) => p.id === fromId);
+      if (!design || !source?.transitions?.some((t) => t.toId === toId)) return;
+      pushHistory();
+      const pages = design.pages.map((page) =>
+        page.id === fromId ? pageWithTransitions(page, removePageTransition(page.transitions, toId)) : page,
+      );
+      commit({ ...design, pages });
     },
   };
 });

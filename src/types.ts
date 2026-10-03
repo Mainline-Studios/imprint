@@ -163,11 +163,33 @@ export type ShirtMeta = {
   neck: "crew" | "v";
 };
 
+export const PAGE_TRANSITION_KINDS = [
+  "none",
+  "fade",
+  "slide-left",
+  "slide-right",
+  "slide-up",
+  "slide-down",
+  "zoom",
+  "flip",
+] as const;
+
+export type PageTransitionKind = (typeof PAGE_TRANSITION_KINDS)[number];
+
+/** Animation for one jump away from the page that stores it. */
+export type PageTransition = {
+  toId: string;
+  kind: PageTransitionKind;
+  durationMs: number;
+};
+
 export type Page = {
   id: string;
   background: Fill;
   objects: CanvasObject[];
   role?: ShirtView;
+  /** Per destination page. Missing pairs keep the webpage export's short fade. */
+  transitions?: PageTransition[];
 };
 
 export type Design = {

@@ -1,5 +1,6 @@
 import type { CanvasObject, Design, Page } from "../types";
 import { uuid } from "./ids";
+import { pageWithTransitions, remapPageTransitions } from "./pageTransitions";
 
 export function cloneObject(obj: CanvasObject, dx = 0, dy = 0): CanvasObject {
   return { ...obj, id: uuid(), x: obj.x + dx, y: obj.y + dy };
@@ -24,17 +25,25 @@ export function clonePage(page: Page, dx = 0, dy = 0): Page {
     background: page.background,
     objects: remapGroupIds(page.objects.map((o) => cloneObject(o, dx, dy))),
     ...(page.role ? { role: page.role } : {}),
+    ...(page.transitions?.length ? { transitions: page.transitions.map((t) => ({ ...t })) } : {}),
   };
 }
 
 export function cloneDesign(design: Design, name = `${design.name} copy`): Design {
+  const idMap = new Map<string, string>();
+  const cloned = design.pages.map((p) => {
+    const next = clonePage(p);
+    idMap.set(p.id, next.id);
+    return next;
+  });
+  const pages = cloned.map((p) => pageWithTransitions(p, remapPageTransitions(p.transitions, idMap) ?? []));
   return {
     id: uuid(),
     name,
     width: design.width,
     height: design.height,
     updatedAt: Date.now(),
-    pages: design.pages.map((p) => clonePage(p)),
+    pages,
     ...(design.shirt ? { shirt: { ...design.shirt } } : {}),
     ...(design.brandColors ? { brandColors: [...design.brandColors] } : {}),
     ...(design.folder ? { folder: design.folder } : {}),

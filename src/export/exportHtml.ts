@@ -1,6 +1,7 @@
 import { fontOf } from "../fonts/catalog";
 import { cssFill, cssImageFilter, cropObjectPosition } from "../lib/fill";
 import { sanitizeHref } from "../lib/href";
+import { clampTransitionMs, isPageTransitionKind } from "../lib/pageTransitions";
 import { stickerById } from "../library/stickers";
 import { getAsset } from "../persist/db";
 import type { ButtonObject, CanvasObject, Design, ImageObject, Page, ShapeObject, StickerObject, TextObject } from "../types";
@@ -33,6 +34,7 @@ export async function buildHtml(design: Design, pageIndex: number | "all"): Prom
   const sections = pages
     .map(({ index, page }, i) => renderPage(design, page, index, assets, i === 0))
     .join("\n");
+  const rulesJson = JSON.stringify(transitionRules(pages)).replace(/</g, "\\u003c");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -56,6 +58,7 @@ export async function buildHtml(design: Design, pageIndex: number | "all"): Prom
       height: 100%;
       overflow: hidden;
       container-type: inline-size;
+      transform-origin: center center;
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
@@ -70,27 +73,169 @@ export async function buildHtml(design: Design, pageIndex: number | "all"): Prom
       position: absolute;
       transform-origin: top left;
     }
+    @media (prefers-reduced-motion: reduce) {
+      .page { transition: none !important; }
+    }
   </style>
 </head>
 <body>
 ${sections}
   <script>
-    (function () {
+${pageRuntime(rulesJson)}
+  </script>
+</body>
+</html>
+`;
+}
+
+function transitionRules(pages: { index: number; page: Page }[]): Record<string, { kind: string; ms: number }> {
+  const numById = new Map(pages.map(({ index, page }) => [page.id, index + 1]));
+  const rules: Record<string, { kind: string; ms: number }> = {};
+  for (const { index, page } of pages) {
+    for (const jump of page.transitions ?? []) {
+      if (!isPageTransitionKind(jump.kind)) continue;
+      const to = numById.get(jump.toId);
+      if (to == null) continue;
+      rules[`${index + 1}>${to}`] = { kind: jump.kind, ms: clampTransitionMs(jump.durationMs) };
+    }
+  }
+  return rules;
+}
+
+function pageRuntime(rulesJson: string): string {
+  return `    (function () {
       var pages = document.querySelectorAll(".page");
       if (!pages.length) return;
-      function show() {
-        var id = (location.hash || "").replace(/^#/, "");
-        var target = id ? document.getElementById(id) : null;
-        if (!target || !target.classList.contains("page")) target = pages[0];
+      var rules = ${rulesJson};
+      var current = null;
+      var token = 0;
+      function reduced() {
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      }
+      function num(el) {
+        var m = /^page-(\\d+)$/.exec(el.id || "");
+        return m ? m[1] : "";
+      }
+      function clearMotion(el) {
+        el.style.transition = "";
+        el.style.transform = "";
+        el.style.opacity = "";
+        el.style.visibility = "";
+        el.style.pointerEvents = "";
+        el.style.zIndex = "";
+      }
+      function mark(target) {
         for (var i = 0; i < pages.length; i++) {
           var on = pages[i] === target;
           pages[i].classList.toggle("is-on", on);
           if (on) pages[i].removeAttribute("aria-hidden");
           else pages[i].setAttribute("aria-hidden", "true");
         }
+        current = target;
+      }
+      function settle(target) {
+        mark(target);
+        for (var i = 0; i < pages.length; i++) clearMotion(pages[i]);
+      }
+      function snap(target) {
+        for (var i = 0; i < pages.length; i++) pages[i].style.transition = "none";
+        mark(target);
+        for (var j = 0; j < pages.length; j++) {
+          pages[j].style.transform = "";
+          pages[j].style.opacity = "";
+          pages[j].style.visibility = "";
+          pages[j].style.pointerEvents = "";
+          pages[j].style.zIndex = "";
+        }
+        requestAnimationFrame(function () {
+          for (var k = 0; k < pages.length; k++) {
+            if (pages[k].style.transition === "none") pages[k].style.transition = "";
+          }
+        });
+      }
+      function enterOf(kind) {
+        if (kind === "slide-left") return "translateX(100%)";
+        if (kind === "slide-right") return "translateX(-100%)";
+        if (kind === "slide-up") return "translateY(100%)";
+        if (kind === "slide-down") return "translateY(-100%)";
+        if (kind === "zoom") return "scale(0.88)";
+        if (kind === "flip") return "perspective(1400px) rotateY(-75deg)";
+        return "none";
+      }
+      function exitOf(kind) {
+        if (kind === "slide-left") return "translateX(-100%)";
+        if (kind === "slide-right") return "translateX(100%)";
+        if (kind === "slide-up") return "translateY(-100%)";
+        if (kind === "slide-down") return "translateY(100%)";
+        if (kind === "zoom") return "scale(1.05)";
+        if (kind === "flip") return "perspective(1400px) rotateY(75deg)";
+        return "none";
+      }
+      function play(from, to, rule) {
+        var my = token;
+        var kind = rule.kind;
+        var ms = Math.max(0, Math.min(2000, rule.ms | 0));
+        var fade = kind === "fade" || kind === "zoom" || kind === "flip";
+        for (var i = 0; i < pages.length; i++) {
+          if (pages[i] !== from && pages[i] !== to) {
+            pages[i].classList.remove("is-on");
+            pages[i].setAttribute("aria-hidden", "true");
+            clearMotion(pages[i]);
+          }
+        }
+        to.style.transition = "none";
+        to.style.visibility = "visible";
+        to.style.pointerEvents = "none";
+        to.style.opacity = fade ? "0" : "1";
+        to.style.transform = enterOf(kind);
+        to.style.zIndex = "2";
+        from.style.transition = "none";
+        from.style.visibility = "visible";
+        from.style.pointerEvents = "none";
+        from.style.opacity = "1";
+        from.style.transform = "none";
+        from.style.zIndex = "1";
+        to.classList.add("is-on");
+        to.removeAttribute("aria-hidden");
+        from.classList.add("is-on");
+        void to.offsetWidth;
+        var ease = "cubic-bezier(.22,.72,.2,1)";
+        var spec = "transform " + ms + "ms " + ease + ", opacity " + ms + "ms ease";
+        to.style.transition = spec;
+        from.style.transition = spec;
+        to.style.opacity = "1";
+        to.style.transform = "none";
+        from.style.transform = exitOf(kind);
+        from.style.opacity = fade ? "0" : "1";
+        current = to;
+        window.setTimeout(function () {
+          if (my !== token) return;
+          settle(to);
+        }, ms + 60);
+      }
+      function show() {
+        var id = (location.hash || "").replace(/^#/, "");
+        var target = id ? document.getElementById(id) : null;
+        if (!target || !target.classList.contains("page")) target = pages[0];
+        var from = current;
+        token++;
+        if (!from || from === target || reduced()) {
+          settle(target);
+          return;
+        }
+        var rule = rules[num(from) + ">" + num(target)];
+        if (!rule) {
+          settle(target);
+          return;
+        }
+        if (rule.kind === "none" || !(rule.ms > 0)) {
+          snap(target);
+          return;
+        }
+        play(from, target, rule);
       }
       document.addEventListener("click", function (e) {
-        var a = e.target.closest("a");
+        var a = e.target && e.target.closest ? e.target.closest("a") : null;
         if (!a) return;
         var href = a.getAttribute("href") || "";
         if (href.charAt(0) !== "#") return;
@@ -102,11 +247,7 @@ ${sections}
       });
       window.addEventListener("hashchange", show);
       show();
-    })();
-  </script>
-</body>
-</html>
-`;
+    })();`;
 }
 
 export async function exportHtml(design: Design, pageIndex: number | "all"): Promise<void> {

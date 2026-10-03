@@ -8,6 +8,7 @@ import { emailFromMailto, hrefKind, mailtoHref, normalizeHrefInput, pageHref, pa
 import { shirtViewOf, shirtViewPhrase } from "../lib/shirt";
 import { normalizedCrop } from "../lib/fill";
 import { TextEffectsPanel } from "./TextEffectsPanel";
+import { PageChangesPanel, PagePairFields } from "./PageChanges";
 import type { ButtonObject, CanvasObject, FontWeight, ImageObject, ShapeObject, StickerObject, TextAlign, TextObject } from "../types";
 
 export function Inspector() {
@@ -75,6 +76,7 @@ export function Inspector() {
               This is the {shirtViewPhrase(shirtView)} print. Switch views in the page strip below.
             </p>
           ) : null}
+          {!tshirt && design.pages.length > 1 ? <PageChangesPanel design={design} /> : null}
         </>
       )}
 
@@ -425,6 +427,7 @@ function StickerFields({ obj }: { obj: StickerObject }) {
 
 function ButtonFields({ obj }: { obj: ButtonObject }) {
   const design = useDocumentStore((s) => s.design);
+  const fromIndex = useDocumentStore((s) => s.currentPageIndex);
   const pageCount = design?.pages.length ?? 1;
   const pageIdx = pageIndexFromHref(obj.href);
   const kind = hrefKind(obj.href);
@@ -543,6 +546,9 @@ function ButtonFields({ obj }: { obj: ButtonObject }) {
           />
         </Field>
       )}
+      {kind === "page" && design && pageIdx != null && pageIdx !== fromIndex && !isTshirtSize(design.width, design.height) ? (
+        <PagePairFields design={design} fromIndex={fromIndex} toIndex={pageIdx} />
+      ) : null}
       <p className="hint">
         {kind === "mail"
           ? "Opens their mail app. Export → Open site to try it, or download the HTML."
