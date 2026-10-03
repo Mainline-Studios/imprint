@@ -51,6 +51,7 @@ export function Sidebar() {
                     {t.name}
                     <small>
                       {t.width} × {t.height}
+                      {t.description ? <span className="side-template-desc">{t.description}</span> : null}
                     </small>
                   </span>
                 </button>

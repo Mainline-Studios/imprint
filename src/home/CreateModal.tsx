@@ -115,6 +115,7 @@ export function CreateModal({ focus }: { focus?: CreateFocus }) {
                       {t.width} × {t.height}
                       {t.id === "keynote-deck" ? " · 3 pages" : ""}
                     </span>
+                    {t.description ? <span className="tpl-desc">{t.description}</span> : null}
                   </button>
                 );
               })}
