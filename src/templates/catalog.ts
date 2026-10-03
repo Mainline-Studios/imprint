@@ -1,3 +1,4 @@
+import type { PageTransitionKind } from "../types";
 import type { ButtonObject, Page, ShapeObject, ShirtView, TemplateDef, TextObject } from "../types";
 import { uuid } from "../lib/ids";
 
@@ -70,24 +71,26 @@ function page(background: string, objects: Page["objects"], role?: ShirtView): P
 
 const QUIZ_W = 1440;
 const QUIZ_CARD = "#fffdf8";
-const QUIZ_EDGE = "#e4d8c8";
-const QUIZ_MUTED = "#6b645c";
-const QUIZ_BODY = "#3f3833";
+const QUIZ_EDGE = "#d5e0d4";
+const QUIZ_MUTED = "#5c685f";
+const QUIZ_BODY = "#243028";
+const GRASS = "#1f6b3a";
+const CAP = NAVY;
 
 function quizNav(aside: string): Page["objects"] {
   return [
-    shape({ shape: "rect", x: 0, y: 0, width: QUIZ_W, height: 72, fill: INK }),
+    shape({ shape: "rect", x: 0, y: 0, width: QUIZ_W, height: 72, fill: CAP }),
     button({
-      x: 28,
+      x: 24,
       y: 16,
-      width: 132,
+      width: 176,
       height: 40,
-      text: "Quiz",
+      text: "BASEBALL",
       href: "#page-1",
-      fill: INK,
+      fill: CAP,
       textFill: PAPER,
       fontFamily: "Oswald",
-      fontSize: 22,
+      fontSize: 20,
       fontWeight: 500,
       cornerRadius: 4,
     }),
@@ -107,12 +110,12 @@ function quizNav(aside: string): Page["objects"] {
 
 function quizFooter(backHref?: string): Page["objects"] {
   const items: Page["objects"] = [
-    shape({ shape: "rect", x: 0, y: 828, width: QUIZ_W, height: 72, fill: INK }),
+    shape({ shape: "rect", x: 0, y: 828, width: QUIZ_W, height: 72, fill: CAP }),
     text({
       x: 48,
       y: 852,
       width: backHref ? 980 : 1344,
-      text: "Replace this footer  ·  Your studio name",
+      text: "Replace this footer  ·  Your ballpark",
       fontFamily: "Inter",
       fontSize: 16,
       fill: "#d5cdc2",
@@ -139,21 +142,21 @@ function quizFooter(backHref?: string): Page["objects"] {
   return items;
 }
 
-function quizProgress(step: 1 | 2 | 3): Page["objects"] {
-  return [80, 512, 944].map((x, i) =>
+function quizProgress(step: 1 | 2 | 3 | 4 | 5): Page["objects"] {
+  return [80, 338, 596, 854, 1112].map((x, i) =>
     shape({
       shape: "rect",
       x,
       y: 108,
-      width: 416,
+      width: 246,
       height: 8,
-      fill: i < step ? OXBLOOD : QUIZ_EDGE,
+      fill: i < step ? GRASS : QUIZ_EDGE,
       cornerRadius: 4,
     }),
   );
 }
 
-function quizChoice(letter: string, label: string, y: number, href: string): Page["objects"] {
+function quizChoice(letter: string, label: string, y: number, href: string, points: number): Page["objects"] {
   return [
     shape({
       shape: "rect",
@@ -177,13 +180,14 @@ function quizChoice(letter: string, label: string, y: number, href: string): Pag
       fontSize: 22,
       fontWeight: 500,
       cornerRadius: 12,
+      points,
     }),
   ];
 }
 
 function quizPreviewRow(letter: string, label: string, y: number): Page["objects"] {
   return [
-    shape({ shape: "rect", x: 948, y, width: 48, height: 48, fill: "#2a3c50", cornerRadius: 10 }),
+    shape({ shape: "rect", x: 948, y, width: 48, height: 48, fill: "#163528", cornerRadius: 10 }),
     text({
       x: 948,
       y: y + 13,
@@ -208,54 +212,75 @@ function quizPreviewRow(letter: string, label: string, y: number): Page["objects
   ];
 }
 
-const QUIZ_QUESTIONS: { prompt: string; answers: [string, string, string, string] }[] = [
+const QUIZ_QUESTIONS: { prompt: string; answers: [string, string, string, string]; correct: 0 | 1 | 2 | 3 }[] = [
   {
-    prompt: "You have one hour and a blank page. What do you reach for first?",
-    answers: [
-      "A pencil and good paper",
-      "The boldest typeface you own",
-      "A grid, then the words",
-      "Whatever is already open",
-    ],
+    prompt: "How many innings are in a regular Major League game?",
+    answers: ["Seven", "Nine", "Ten", "Twelve"],
+    correct: 1,
   },
   {
-    prompt: "Someone says “make it pop.” What do you actually do?",
-    answers: [
-      "One strong color, then stop",
-      "Make the headline much bigger",
-      "Ask what they actually mean",
-      "Add a font, then take it away",
-    ],
+    prompt: "How many strikes make a strikeout?",
+    answers: ["Two", "Three", "Four", "Five"],
+    correct: 1,
   },
   {
-    prompt: "The deadline just moved up. How do you finish?",
-    answers: [
-      "Cut whatever isn’t the point",
-      "Trust the first layout",
-      "Nudge the margins until it’s quiet",
-      "Ship it and call the edge a style",
-    ],
+    prompt: "What is a fair ball hit over the outfield fence in flight?",
+    answers: ["A double", "A sacrifice fly", "A home run", "A balk"],
+    correct: 2,
+  },
+  {
+    prompt: "Which base does a runner touch to score a run?",
+    answers: ["First base", "Second base", "Third base", "Home plate"],
+    correct: 3,
+  },
+  {
+    prompt: "How many outs does one team get in a half-inning?",
+    answers: ["One", "Two", "Three", "Four"],
+    correct: 2,
   },
 ];
 
-function quizQuestionPage(index: 0 | 1 | 2): Page {
+function quizJump(pages: Page[], from: number, to: number, kind: PageTransitionKind, durationMs: number) {
+  const source = pages[from - 1];
+  const dest = pages[to - 1];
+  if (!source || !dest) return;
+  source.transitions = [...(source.transitions ?? []), { toId: dest.id, kind, durationMs }];
+}
+
+function withQuizTransitions(pages: Page[]): Page[] {
+  quizJump(pages, 1, 2, "slide-left", 480);
+  quizJump(pages, 2, 3, "slide-up", 520);
+  quizJump(pages, 3, 4, "slide-left", 420);
+  quizJump(pages, 4, 5, "slide-left", 420);
+  quizJump(pages, 5, 6, "slide-left", 420);
+  quizJump(pages, 6, 7, "zoom", 560);
+  quizJump(pages, 3, 2, "slide-right", 380);
+  quizJump(pages, 4, 3, "slide-right", 380);
+  quizJump(pages, 5, 4, "slide-right", 380);
+  quizJump(pages, 6, 5, "slide-right", 380);
+  quizJump(pages, 7, 6, "slide-right", 380);
+  for (const from of [2, 3, 4, 5, 6, 7]) quizJump(pages, from, 1, "fade", 420);
+  return pages;
+}
+
+function quizQuestionPage(index: 0 | 1 | 2 | 3 | 4): Page {
   const q = QUIZ_QUESTIONS[index];
-  const n = (index + 1) as 1 | 2 | 3;
-  const next = n === 3 ? "#page-5" : `#page-${n + 2}`;
+  const n = (index + 1) as 1 | 2 | 3 | 4 | 5;
+  const next = n === 5 ? "#page-7" : `#page-${n + 2}`;
   const letters = ["A", "B", "C", "D"] as const;
   const ys = [400, 492, 584, 676];
   return page(CREAM, [
-    ...quizNav("Which design tool are you?"),
+    ...quizNav("How well do you know baseball?"),
     ...quizProgress(n),
     text({
       x: 80,
       y: 148,
       width: 1280,
-      text: `Question ${n} of 3`,
+      text: `Question ${n} of 5`,
       fontFamily: "Oswald",
       fontSize: 18,
       fontWeight: 500,
-      fill: OXBLOOD,
+      fill: GRASS,
       letterSpacing: 1.5,
     }),
     text({
@@ -269,12 +294,14 @@ function quizQuestionPage(index: 0 | 1 | 2): Page {
       fill: INK,
       lineHeight: 1.2,
     }),
-    ...letters.flatMap((letter, i) => quizChoice(letter, q.answers[i] ?? "", ys[i] ?? 400, next)),
+    ...letters.flatMap((letter, i) =>
+      quizChoice(letter, q.answers[i] ?? "", ys[i] ?? 400, next, i === q.correct ? 1 : 0),
+    ),
     text({
       x: 80,
       y: 768,
       width: 1080,
-      text: "Placeholder answers. Any choice opens the next page — rewrite the words, and where the button goes.",
+      text: "Placeholder choices from the rulebook. Any one opens the next page — rewrite the words, and where the button goes.",
       fontFamily: "Inter",
       fontSize: 16,
       fill: QUIZ_MUTED,
@@ -1194,175 +1221,181 @@ export const TEMPLATES: TemplateDef[] = [
     category: "site",
     width: 1440,
     height: 900,
-    build: () => [
-      page(CREAM, [
-        ...quizNav("A three-question quiz"),
-        shape({ shape: "rect", x: 80, y: 168, width: 72, height: 6, fill: GOLD }),
-        text({
-          x: 80,
-          y: 196,
-          width: 760,
-          text: "THREE QUESTIONS",
-          fontFamily: "Oswald",
-          fontSize: 16,
-          fontWeight: 500,
-          fill: OXBLOOD,
-          letterSpacing: 3,
-        }),
-        text({
-          x: 80,
-          y: 236,
-          width: 780,
-          text: "Which design\ntool are you?",
-          fontFamily: "Playfair Display",
-          fontSize: 72,
-          fontWeight: 600,
-          fill: INK,
-          lineHeight: 1.02,
-        }),
-        text({
-          x: 80,
-          y: 430,
-          width: 700,
-          text: "A short placeholder quiz. Change the title, the answers, and the result — the buttons already jump from page to page.",
-          fontFamily: "Inter",
-          fontSize: 22,
-          fill: QUIZ_BODY,
-          lineHeight: 1.35,
-        }),
-        button({
-          x: 80,
-          y: 600,
-          width: 240,
-          height: 60,
-          text: "Start quiz",
-          href: "#page-2",
-          fontSize: 20,
-          cornerRadius: 8,
-        }),
-        shape({ shape: "rect", x: 900, y: 140, width: 468, height: 640, fill: NAVY, cornerRadius: 20 }),
-        text({
-          x: 940,
-          y: 176,
-          width: 388,
-          text: "SAMPLE ANSWERS",
-          fontFamily: "Oswald",
-          fontSize: 14,
-          fontWeight: 500,
-          fill: GOLD,
-          letterSpacing: 2,
-        }),
-        ...quizPreviewRow("A", "Pencil and paper", 236),
-        ...quizPreviewRow("B", "A loud typeface", 324),
-        ...quizPreviewRow("C", "The quiet grid", 412),
-        ...quizPreviewRow("D", "What’s already open", 500),
-        text({
-          x: 940,
-          y: 600,
-          width: 388,
-          text: "Swap every line. The buttons on the next pages are the ones people click.",
-          fontFamily: "Inter",
-          fontSize: 16,
-          fill: GOLD,
-          lineHeight: 1.4,
-        }),
-        ...quizFooter(),
+    build: () =>
+      withQuizTransitions([
+        page(CREAM, [
+          ...quizNav("A five-question quiz"),
+          shape({ shape: "rect", x: 80, y: 168, width: 72, height: 6, fill: GOLD }),
+          text({
+            x: 80,
+            y: 196,
+            width: 760,
+            text: "FIVE QUESTIONS",
+            fontFamily: "Oswald",
+            fontSize: 16,
+            fontWeight: 500,
+            fill: GRASS,
+            letterSpacing: 3,
+          }),
+          text({
+            x: 80,
+            y: 236,
+            width: 780,
+            text: "How well do you\nknow baseball?",
+            fontFamily: "Playfair Display",
+            fontSize: 64,
+            fontWeight: 600,
+            fill: INK,
+            lineHeight: 1.02,
+          }),
+          text({
+            x: 80,
+            y: 420,
+            width: 720,
+            text: "Five questions from the diamond. Swap any line — this is only a starting point.",
+            fontFamily: "Inter",
+            fontSize: 22,
+            fill: QUIZ_BODY,
+            lineHeight: 1.35,
+          }),
+          button({
+            x: 80,
+            y: 560,
+            width: 240,
+            height: 60,
+            text: "Start quiz",
+            href: "#page-2",
+            fill: OXBLOOD,
+            fontSize: 20,
+            cornerRadius: 8,
+          }),
+          shape({ shape: "rect", x: 900, y: 140, width: 468, height: 640, fill: FOREST, cornerRadius: 20 }),
+          shape({ shape: "triangle", x: 1268, y: 168, width: 64, height: 56, fill: PAPER }),
+          text({
+            x: 940,
+            y: 176,
+            width: 140,
+            text: "HOME",
+            fontFamily: "Oswald",
+            fontSize: 14,
+            fontWeight: 500,
+            fill: GOLD,
+            letterSpacing: 2,
+          }),
+          ...quizPreviewRow("A", "Nine innings", 260),
+          ...quizPreviewRow("B", "Three strikes", 348),
+          ...quizPreviewRow("C", "A home run", 436),
+          ...quizPreviewRow("D", "Home plate", 524),
+          text({
+            x: 940,
+            y: 620,
+            width: 388,
+            text: "Sample card. The buttons on the next pages are the ones people click.",
+            fontFamily: "Inter",
+            fontSize: 16,
+            fill: GOLD,
+            lineHeight: 1.4,
+          }),
+          ...quizFooter(),
+        ]),
+        quizQuestionPage(0),
+        quizQuestionPage(1),
+        quizQuestionPage(2),
+        quizQuestionPage(3),
+        quizQuestionPage(4),
+        page(CREAM, [
+          ...quizNav("Your result"),
+          shape({ shape: "rect", x: 80, y: 188, width: 72, height: 6, fill: GOLD }),
+          text({
+            x: 80,
+            y: 216,
+            width: 760,
+            text: "YOUR RESULT",
+            fontFamily: "Oswald",
+            fontSize: 16,
+            fontWeight: 500,
+            fill: GRASS,
+            letterSpacing: 3,
+          }),
+          text({
+            x: 80,
+            y: 260,
+            width: 760,
+            text: "You got {{points}} of 5",
+            fontFamily: "Playfair Display",
+            fontSize: 68,
+            fontWeight: 600,
+            fill: INK,
+          }),
+          text({
+            x: 80,
+            y: 390,
+            width: 740,
+            text: "You might be the fan who stays through extra innings — loud at the right time, and happiest when the grass is cut.",
+            fontFamily: "Inter",
+            fontSize: 24,
+            fill: QUIZ_BODY,
+            lineHeight: 1.35,
+          }),
+          text({
+            x: 80,
+            y: 530,
+            width: 740,
+            text: "Each right answer is 1 point. The number above fills in when someone takes the quiz. Rewrite this before you share it.",
+            fontFamily: "Inter",
+            fontSize: 18,
+            fill: QUIZ_MUTED,
+            lineHeight: 1.4,
+          }),
+          button({
+            x: 80,
+            y: 660,
+            width: 220,
+            height: 60,
+            text: "Try again",
+            href: "#page-1",
+            fill: OXBLOOD,
+            fontSize: 20,
+            cornerRadius: 8,
+          }),
+          shape({ shape: "rect", x: 900, y: 188, width: 468, height: 532, fill: FOREST, cornerRadius: 20 }),
+          text({
+            x: 940,
+            y: 300,
+            width: 388,
+            text: "{{points}} / 5",
+            align: "center",
+            fontFamily: "Playfair Display",
+            fontSize: 96,
+            fontWeight: 600,
+            fill: PAPER,
+          }),
+          text({
+            x: 940,
+            y: 440,
+            width: 388,
+            text: "PLACEHOLDER",
+            align: "center",
+            fontFamily: "Oswald",
+            fontSize: 16,
+            fontWeight: 500,
+            fill: GOLD,
+            letterSpacing: 3,
+          }),
+          text({
+            x: 980,
+            y: 500,
+            width: 308,
+            text: "Change the number, or take it out and write the ending in your own words.",
+            align: "center",
+            fontFamily: "Inter",
+            fontSize: 18,
+            fill: GOLD,
+            lineHeight: 1.4,
+          }),
+          ...quizFooter("#page-6"),
+        ]),
       ]),
-      quizQuestionPage(0),
-      quizQuestionPage(1),
-      quizQuestionPage(2),
-      page(CREAM, [
-        ...quizNav("Your result"),
-        shape({ shape: "rect", x: 80, y: 188, width: 72, height: 6, fill: GOLD }),
-        text({
-          x: 80,
-          y: 216,
-          width: 760,
-          text: "YOUR RESULT",
-          fontFamily: "Oswald",
-          fontSize: 16,
-          fontWeight: 500,
-          fill: OXBLOOD,
-          letterSpacing: 3,
-        }),
-        text({
-          x: 80,
-          y: 260,
-          width: 760,
-          text: "You got 2 of 3",
-          fontFamily: "Playfair Display",
-          fontSize: 68,
-          fontWeight: 600,
-          fill: INK,
-        }),
-        text({
-          x: 80,
-          y: 390,
-          width: 740,
-          text: "You might be the pencil: patient, a little stubborn, and happiest when the page can breathe.",
-          fontFamily: "Inter",
-          fontSize: 24,
-          fill: QUIZ_BODY,
-          lineHeight: 1.35,
-        }),
-        text({
-          x: 80,
-          y: 520,
-          width: 740,
-          text: "Placeholder score. These buttons turn the page — they don’t add points. Rewrite this before you share it.",
-          fontFamily: "Inter",
-          fontSize: 18,
-          fill: QUIZ_MUTED,
-          lineHeight: 1.4,
-        }),
-        button({
-          x: 80,
-          y: 660,
-          width: 220,
-          height: 60,
-          text: "Try again",
-          href: "#page-1",
-          fontSize: 20,
-          cornerRadius: 8,
-        }),
-        shape({ shape: "rect", x: 900, y: 188, width: 468, height: 532, fill: NAVY, cornerRadius: 20 }),
-        text({
-          x: 940,
-          y: 300,
-          width: 388,
-          text: "2 / 3",
-          align: "center",
-          fontFamily: "Playfair Display",
-          fontSize: 96,
-          fontWeight: 600,
-          fill: PAPER,
-        }),
-        text({
-          x: 940,
-          y: 440,
-          width: 388,
-          text: "PLACEHOLDER",
-          align: "center",
-          fontFamily: "Oswald",
-          fontSize: 16,
-          fontWeight: 500,
-          fill: GOLD,
-          letterSpacing: 3,
-        }),
-        text({
-          x: 980,
-          y: 500,
-          width: 308,
-          text: "Change the number, or take it out and write your own ending.",
-          align: "center",
-          fontFamily: "Inter",
-          fontSize: 18,
-          fill: GOLD,
-          lineHeight: 1.4,
-        }),
-        ...quizFooter("#page-4"),
-      ]),
-    ],
   },
   {
     id: "studio-note",
@@ -1731,7 +1764,7 @@ export function templateThumbColors(id: string): { bg: string; accent: string } 
     "case-study": { bg: INK, accent: GOLD },
     "simple-site": { bg: CREAM, accent: OXBLOOD },
     "wide-landing": { bg: NAVY, accent: GOLD },
-    quiz: { bg: CREAM, accent: OXBLOOD },
+    quiz: { bg: FOREST, accent: GOLD },
     "studio-note": { bg: CREAM, accent: OXBLOOD },
     "saturday-hours": { bg: PAPER, accent: OXBLOOD },
     "paper-talk": { bg: PAPER, accent: OXBLOOD },
