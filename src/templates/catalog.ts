@@ -142,29 +142,35 @@ function quizFooter(backHref?: string): Page["objects"] {
   return items;
 }
 
-function quizChoice(
-  letter: string,
-  label: string,
-  x: number,
-  y: number,
-  width: number,
-  href: string,
-  points: number,
-): Page["objects"] {
+function quizProgress(step: 1 | 2 | 3 | 4 | 5): Page["objects"] {
+  return [80, 338, 596, 854, 1112].map((x, i) =>
+    shape({
+      shape: "rect",
+      x,
+      y: 108,
+      width: 246,
+      height: 8,
+      fill: i < step ? GRASS : QUIZ_EDGE,
+      cornerRadius: 4,
+    }),
+  );
+}
+
+function quizChoice(letter: string, label: string, y: number, href: string, points: number): Page["objects"] {
   return [
     shape({
       shape: "rect",
-      x: x - 2,
+      x: 78,
       y: y - 2,
-      width: width + 4,
+      width: 1284,
       height: 76,
       fill: QUIZ_EDGE,
       cornerRadius: 14,
     }),
     button({
-      x,
+      x: 80,
       y,
-      width,
+      width: 1280,
       height: 72,
       text: `${letter}    ·    ${label}`,
       href,
@@ -234,154 +240,42 @@ const QUIZ_QUESTIONS: { prompt: string; answers: [string, string, string, string
   },
 ];
 
-function quizJump(
-  pages: Page[],
-  from: number,
-  to: number,
-  kind: PageTransitionKind,
-  durationMs: number,
-  options?: { direction?: PageTransitionDirection; easing?: PageTransitionEasing },
-) {
+function quizJump(pages: Page[], from: number, to: number, kind: PageTransitionKind, durationMs: number) {
   const source = pages[from - 1];
   const dest = pages[to - 1];
   if (!source || !dest) return;
-  source.transitions = [
-    ...(source.transitions ?? []),
-    {
-      toId: dest.id,
-      kind,
-      durationMs,
-      ...(options?.direction ? { direction: options.direction } : {}),
-      ...(options?.easing ? { easing: options.easing } : {}),
-    },
-  ];
+  source.transitions = [...(source.transitions ?? []), { toId: dest.id, kind, durationMs }];
 }
 
 function withQuizTransitions(pages: Page[]): Page[] {
-  quizJump(pages, 1, 2, "pitch", 340, { direction: "left", easing: "ease-out" });
-  quizJump(pages, 2, 3, "magic-move", 720, { easing: "ease-in-out" });
-  quizJump(pages, 3, 4, "magic-move", 720, { easing: "ease-in-out" });
-  quizJump(pages, 4, 5, "magic-move", 700, { easing: "ease-in-out" });
-  quizJump(pages, 5, 6, "magic-move", 700, { easing: "ease-in-out" });
-  quizJump(pages, 6, 7, "zoom-in", 560, { easing: "ease-out" });
-  for (const [from, to] of [
-    [3, 2],
-    [4, 3],
-    [5, 4],
-    [6, 5],
-    [7, 6],
-  ] as const) {
-    quizJump(pages, from, to, "push", 400, { direction: "right", easing: "ease-in-out" });
-  }
-  for (const from of [2, 3, 4, 5, 6, 7]) quizJump(pages, from, 1, "fade", 420, { easing: "ease" });
+  quizJump(pages, 1, 2, "slide-left", 480);
+  quizJump(pages, 2, 3, "slide-up", 520);
+  quizJump(pages, 3, 4, "slide-left", 420);
+  quizJump(pages, 4, 5, "slide-left", 420);
+  quizJump(pages, 5, 6, "slide-left", 420);
+  quizJump(pages, 6, 7, "zoom", 560);
+  quizJump(pages, 3, 2, "slide-right", 380);
+  quizJump(pages, 4, 3, "slide-right", 380);
+  quizJump(pages, 5, 4, "slide-right", 380);
+  quizJump(pages, 6, 5, "slide-right", 380);
+  quizJump(pages, 7, 6, "slide-right", 380);
+  for (const from of [2, 3, 4, 5, 6, 7]) quizJump(pages, from, 1, "fade", 420);
   return pages;
 }
 
-type QuestionFrame = {
-  nav: QuizBox;
-  word: QuizBox;
-  aside: { x: number; y: number; w: number; align: "left" | "right" };
-  board: QuizBox;
-  plate: QuizBox;
-  innings: { x: number; y: number; w: number; h: number; gap: number; on: string; off: string };
-  contentX: number;
-  contentW: number;
-  labelY: number;
-  promptY: number;
-  choices: [number, number, number, number];
-  hintY: number;
-};
-
-const QUESTION_FRAMES: QuestionFrame[] = [
-  {
-    nav: { x: 0, y: 0, w: 1440, h: 64 },
-    word: { x: 28, y: 12, w: 176, h: 40 },
-    aside: { x: 520, y: 22, w: 860, align: "right" },
-    board: { x: 1040, y: 168, w: 340, h: 500, fill: FOREST, radius: 18 },
-    plate: { x: 1168, y: 214, w: 84, h: 72, rotation: 0 },
-    innings: { x: 64, y: 88, w: 150, h: 8, gap: 16, on: GRASS, off: QUIZ_EDGE },
-    contentX: 64,
-    contentW: 940,
-    labelY: 128,
-    promptY: 168,
-    choices: [400, 492, 584, 676],
-    hintY: 764,
-  },
-  {
-    nav: { x: 36, y: 16, w: 1368, h: 52, radius: 14 },
-    word: { x: 1148, y: 22, w: 220, h: 40 },
-    aside: { x: 72, y: 30, w: 700, align: "left" },
-    board: { x: 48, y: 156, w: 320, h: 560, fill: NAVY, radius: 18 },
-    plate: { x: 118, y: 248, w: 150, h: 128, rotation: 14 },
-    innings: { x: 400, y: 792, w: 148, h: 16, gap: 18, on: GOLD, off: "#d9d0c4" },
-    contentX: 400,
-    contentW: 980,
-    labelY: 150,
-    promptY: 190,
-    choices: [400, 492, 584, 676],
-    hintY: 752,
-  },
-  {
-    nav: { x: 0, y: 0, w: 1440, h: 72 },
-    word: { x: 24, y: 16, w: 210, h: 42 },
-    aside: { x: 480, y: 26, w: 900, align: "right" },
-    board: { x: 64, y: 100, w: 1312, h: 128, fill: "#163528", radius: 16 },
-    plate: { x: 1224, y: 116, w: 108, h: 92, rotation: -10 },
-    innings: { x: 96, y: 146, w: 120, h: 22, gap: 16, on: PAPER, off: "#2a4a38" },
-    contentX: 64,
-    contentW: 1280,
-    labelY: 252,
-    promptY: 290,
-    choices: [430, 518, 606, 694],
-    hintY: 778,
-  },
-  {
-    nav: { x: 0, y: 0, w: 1000, h: 68 },
-    word: { x: 28, y: 14, w: 190, h: 40 },
-    aside: { x: 250, y: 24, w: 710, align: "right" },
-    board: { x: 1060, y: 88, w: 320, h: 640, fill: FOREST, radius: 20 },
-    plate: { x: 1150, y: 148, w: 130, h: 112, rotation: 18 },
-    innings: { x: 64, y: 92, w: 150, h: 12, gap: 14, on: GRASS, off: QUIZ_EDGE },
-    contentX: 64,
-    contentW: 960,
-    labelY: 140,
-    promptY: 180,
-    choices: [400, 492, 584, 676],
-    hintY: 764,
-  },
-  {
-    nav: { x: 0, y: 0, w: 1440, h: 58 },
-    word: { x: 1172, y: 9, w: 230, h: 40 },
-    aside: { x: 360, y: 18, w: 780, align: "right" },
-    board: { x: 300, y: 86, w: 840, h: 132, fill: GRASS, radius: 16 },
-    plate: { x: 64, y: 248, w: 180, h: 156, rotation: -16 },
-    innings: { x: 340, y: 128, w: 108, h: 22, gap: 14, on: GOLD, off: "#174e2c" },
-    contentX: 280,
-    contentW: 1100,
-    labelY: 250,
-    promptY: 292,
-    choices: [440, 528, 616, 704],
-    hintY: 790,
-  },
-];
-
 function quizQuestionPage(index: 0 | 1 | 2 | 3 | 4): Page {
   const q = QUIZ_QUESTIONS[index];
-  const frame = QUESTION_FRAMES[index]!;
   const n = (index + 1) as 1 | 2 | 3 | 4 | 5;
   const next = n === 5 ? "#page-7" : `#page-${n + 2}`;
   const letters = ["A", "B", "C", "D"] as const;
+  const ys = [400, 492, 584, 676];
   return page(CREAM, [
-    ...quizNavBar(frame.nav),
-    ...quizAside("How well do you know baseball?", frame.aside),
-    ...quizBoard(frame.board),
-    ...quizPlate(frame.plate),
-    ...quizInnings(n, frame.innings),
-    ...quizWordmark(frame.word),
+    ...quizNav("How well do you know baseball?"),
+    ...quizProgress(n),
     text({
-      x: frame.contentX,
-      y: frame.labelY,
-      width: frame.contentW,
+      x: 80,
+      y: 148,
+      width: 1280,
       text: `Question ${n} of 5`,
       fontFamily: "Oswald",
       fontSize: 18,
@@ -390,9 +284,9 @@ function quizQuestionPage(index: 0 | 1 | 2 | 3 | 4): Page {
       letterSpacing: 1.5,
     }),
     text({
-      x: frame.contentX,
-      y: frame.promptY,
-      width: frame.contentW,
+      x: 80,
+      y: 188,
+      width: 1280,
       text: q.prompt,
       fontFamily: "Playfair Display",
       fontSize: 40,
@@ -401,20 +295,12 @@ function quizQuestionPage(index: 0 | 1 | 2 | 3 | 4): Page {
       lineHeight: 1.2,
     }),
     ...letters.flatMap((letter, i) =>
-      quizChoice(
-        letter,
-        q.answers[i] ?? "",
-        frame.contentX,
-        frame.choices[i],
-        frame.contentW,
-        next,
-        i === q.correct ? 1 : 0,
-      ),
+      quizChoice(letter, q.answers[i] ?? "", ys[i] ?? 400, next, i === q.correct ? 1 : 0),
     ),
     text({
-      x: frame.contentX,
-      y: frame.hintY,
-      width: Math.min(frame.contentW, 1080),
+      x: 80,
+      y: 768,
+      width: 1080,
       text: "Placeholder choices from the rulebook. Any one opens the next page — rewrite the words, and where the button goes.",
       fontFamily: "Inter",
       fontSize: 16,
