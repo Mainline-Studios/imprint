@@ -243,13 +243,13 @@ function quizQuestionPage(index: 0 | 1 | 2): Page {
   const n = (index + 1) as 1 | 2 | 3;
   const next = n === 3 ? "#page-5" : `#page-${n + 2}`;
   const letters = ["A", "B", "C", "D"] as const;
-  const ys = [364, 456, 548, 640];
+  const ys = [400, 492, 584, 676];
   return page(CREAM, [
     ...quizNav("Which design tool are you?"),
     ...quizProgress(n),
     text({
       x: 80,
-      y: 144,
+      y: 148,
       width: 1280,
       text: `Question ${n} of 3`,
       fontFamily: "Oswald",
@@ -260,7 +260,7 @@ function quizQuestionPage(index: 0 | 1 | 2): Page {
     }),
     text({
       x: 80,
-      y: 184,
+      y: 188,
       width: 1280,
       text: q.prompt,
       fontFamily: "Playfair Display",
@@ -269,11 +269,11 @@ function quizQuestionPage(index: 0 | 1 | 2): Page {
       fill: INK,
       lineHeight: 1.2,
     }),
-    ...letters.flatMap((letter, i) => quizChoice(letter, q.answers[i] ?? "", ys[i] ?? 364, next)),
+    ...letters.flatMap((letter, i) => quizChoice(letter, q.answers[i] ?? "", ys[i] ?? 400, next)),
     text({
       x: 80,
-      y: 744,
-      width: 1100,
+      y: 768,
+      width: 1080,
       text: "Placeholder answers. Any choice opens the next page — rewrite the words, and where the button goes.",
       fontFamily: "Inter",
       fontSize: 16,
@@ -1273,10 +1273,10 @@ export const TEMPLATES: TemplateDef[] = [
       quizQuestionPage(2),
       page(CREAM, [
         ...quizNav("Your result"),
-        shape({ shape: "rect", x: 80, y: 168, width: 72, height: 6, fill: GOLD }),
+        shape({ shape: "rect", x: 80, y: 188, width: 72, height: 6, fill: GOLD }),
         text({
           x: 80,
-          y: 196,
+          y: 216,
           width: 760,
           text: "YOUR RESULT",
           fontFamily: "Oswald",
@@ -1287,7 +1287,7 @@ export const TEMPLATES: TemplateDef[] = [
         }),
         text({
           x: 80,
-          y: 240,
+          y: 260,
           width: 760,
           text: "You got 2 of 3",
           fontFamily: "Playfair Display",
@@ -1297,7 +1297,7 @@ export const TEMPLATES: TemplateDef[] = [
         }),
         text({
           x: 80,
-          y: 360,
+          y: 390,
           width: 740,
           text: "You might be the pencil: patient, a little stubborn, and happiest when the page can breathe.",
           fontFamily: "Inter",
@@ -1307,7 +1307,7 @@ export const TEMPLATES: TemplateDef[] = [
         }),
         text({
           x: 80,
-          y: 480,
+          y: 520,
           width: 740,
           text: "Placeholder score. These buttons turn the page — they don’t add points. Rewrite this before you share it.",
           fontFamily: "Inter",
@@ -1317,7 +1317,7 @@ export const TEMPLATES: TemplateDef[] = [
         }),
         button({
           x: 80,
-          y: 600,
+          y: 660,
           width: 220,
           height: 60,
           text: "Try again",
@@ -1325,21 +1325,21 @@ export const TEMPLATES: TemplateDef[] = [
           fontSize: 20,
           cornerRadius: 8,
         }),
-        shape({ shape: "rect", x: 900, y: 168, width: 468, height: 492, fill: NAVY, cornerRadius: 20 }),
+        shape({ shape: "rect", x: 900, y: 188, width: 468, height: 532, fill: NAVY, cornerRadius: 20 }),
         text({
           x: 940,
-          y: 250,
+          y: 300,
           width: 388,
           text: "2 / 3",
           align: "center",
           fontFamily: "Playfair Display",
-          fontSize: 92,
+          fontSize: 96,
           fontWeight: 600,
           fill: PAPER,
         }),
         text({
           x: 940,
-          y: 380,
+          y: 440,
           width: 388,
           text: "PLACEHOLDER",
           align: "center",
@@ -1351,7 +1351,7 @@ export const TEMPLATES: TemplateDef[] = [
         }),
         text({
           x: 980,
-          y: 440,
+          y: 500,
           width: 308,
           text: "Change the number, or take it out and write your own ending.",
           align: "center",
