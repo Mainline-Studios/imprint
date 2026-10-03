@@ -50,7 +50,7 @@ export function TemplatesScreen({
   const sizes = useMemo(() => sizesFor(nav), [nav]);
   const templates = useMemo(() => {
     return TEMPLATES.filter((t) => {
-      if (q && !t.name.toLowerCase().includes(q)) return false;
+      if (q && !`${t.name} ${t.description ?? ""}`.toLowerCase().includes(q)) return false;
       return templateMatchesNav(t, nav);
     });
   }, [nav, q]);
@@ -267,6 +267,7 @@ function TemplateCard({ template }: { template: TemplateDef }) {
         {presetLabel(template.width, template.height, template.category)}
         {pages.length > 1 ? ` · ${pages.length} pages` : ""}
       </span>
+      {template.description ? <span className="home-tpl-desc">{template.description}</span> : null}
     </button>
   );
 }

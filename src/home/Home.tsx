@@ -110,7 +110,7 @@ export function Home() {
 
   const filteredTemplates = useMemo(() => {
     return TEMPLATES.filter((t) => {
-      if (q && !t.name.toLowerCase().includes(q)) return false;
+      if (q && !`${t.name} ${t.description ?? ""}`.toLowerCase().includes(q)) return false;
       if (sizeGroup && t.category !== sizeGroup) return false;
       return true;
     });
@@ -509,6 +509,7 @@ function TemplateCard({ template }: { template: TemplateDef }) {
         {presetLabel(template.width, template.height, template.category)}
         {template.id === "keynote-deck" ? " · 3 pages" : ""}
       </span>
+      {template.description ? <span className="home-tpl-desc">{template.description}</span> : null}
     </button>
   );
 }

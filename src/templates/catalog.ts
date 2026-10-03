@@ -1,4 +1,4 @@
-import type { PageTransitionKind } from "../types";
+import type { PageTransitionDirection, PageTransitionEasing, PageTransitionKind } from "../types";
 import type { ButtonObject, Page, ShapeObject, ShirtView, TemplateDef, TextObject } from "../types";
 import { uuid } from "../lib/ids";
 
@@ -19,6 +19,7 @@ function text(
     align: partial.align ?? "left",
     fill: partial.fill ?? "#1a1614",
     fontSize: partial.fontSize ?? 24,
+    ...(partial.name ? { name: partial.name } : {}),
   };
 }
 
@@ -77,35 +78,114 @@ const QUIZ_BODY = "#243028";
 const GRASS = "#1f6b3a";
 const CAP = NAVY;
 
-function quizNav(aside: string): Page["objects"] {
+type QuizBox = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  radius?: number;
+  fill?: string;
+  rotation?: number;
+  textFill?: string;
+};
+
+function quizNavBar(box: QuizBox): Page["objects"] {
   return [
-    shape({ shape: "rect", x: 0, y: 0, width: QUIZ_W, height: 72, fill: CAP }),
+    shape({
+      name: "nav-bar",
+      shape: "rect",
+      x: box.x,
+      y: box.y,
+      width: box.w,
+      height: box.h,
+      fill: CAP,
+      cornerRadius: box.radius ?? 0,
+    }),
+  ];
+}
+
+function quizWordmark(box: QuizBox): Page["objects"] {
+  return [
     button({
-      x: 24,
-      y: 16,
-      width: 176,
-      height: 40,
+      name: "wordmark",
+      x: box.x,
+      y: box.y,
+      width: box.w,
+      height: box.h,
       text: "BASEBALL",
       href: "#page-1",
-      fill: CAP,
-      textFill: PAPER,
+      fill: box.fill ?? CAP,
+      textFill: box.textFill ?? PAPER,
       fontFamily: "Oswald",
-      fontSize: 20,
+      fontSize: Math.max(16, Math.round(box.h * 0.46)),
       fontWeight: 500,
       cornerRadius: 4,
     }),
+  ];
+}
+
+function quizAside(label: string, box: { x: number; y: number; w: number; align: "left" | "right" }): Page["objects"] {
+  return [
     text({
-      x: 520,
-      y: 26,
-      width: 872,
-      text: aside,
-      align: "right",
+      x: box.x,
+      y: box.y,
+      width: box.w,
+      text: label,
+      align: box.align,
       fontFamily: "Inter",
       fontSize: 16,
       fontWeight: 500,
       fill: GOLD,
     }),
   ];
+}
+
+function quizBoard(box: QuizBox): Page["objects"] {
+  return [
+    shape({
+      name: "scoreboard",
+      shape: "rect",
+      x: box.x,
+      y: box.y,
+      width: box.w,
+      height: box.h,
+      fill: box.fill ?? FOREST,
+      cornerRadius: box.radius ?? 18,
+    }),
+  ];
+}
+
+function quizPlate(box: QuizBox): Page["objects"] {
+  return [
+    shape({
+      name: "home-plate",
+      shape: "triangle",
+      x: box.x,
+      y: box.y,
+      width: box.w,
+      height: box.h,
+      rotation: box.rotation ?? 0,
+      fill: PAPER,
+    }),
+  ];
+}
+
+function quizInnings(
+  step: number,
+  layout: { x: number; y: number; w: number; h: number; gap: number; on: string; off: string },
+): Page["objects"] {
+  return [0, 1, 2, 3, 4].map((i) =>
+    shape({
+      name: `inning-${i + 1}`,
+      shape: "rect",
+      x: layout.x + i * (layout.w + layout.gap),
+      y: layout.y,
+      width: layout.w,
+      height: layout.h,
+      fill: i < step ? layout.on : layout.off,
+      cornerRadius: Math.min(6, layout.h / 2),
+    }),
+  );
 }
 
 function quizFooter(backHref?: string): Page["objects"] {
@@ -142,35 +222,29 @@ function quizFooter(backHref?: string): Page["objects"] {
   return items;
 }
 
-function quizProgress(step: 1 | 2 | 3 | 4 | 5): Page["objects"] {
-  return [80, 338, 596, 854, 1112].map((x, i) =>
-    shape({
-      shape: "rect",
-      x,
-      y: 108,
-      width: 246,
-      height: 8,
-      fill: i < step ? GRASS : QUIZ_EDGE,
-      cornerRadius: 4,
-    }),
-  );
-}
-
-function quizChoice(letter: string, label: string, y: number, href: string, points: number): Page["objects"] {
+function quizChoice(
+  letter: string,
+  label: string,
+  x: number,
+  y: number,
+  width: number,
+  href: string,
+  points: number,
+): Page["objects"] {
   return [
     shape({
       shape: "rect",
-      x: 78,
+      x: x - 2,
       y: y - 2,
-      width: 1284,
+      width: width + 4,
       height: 76,
       fill: QUIZ_EDGE,
       cornerRadius: 14,
     }),
     button({
-      x: 80,
+      x,
       y,
-      width: 1280,
+      width,
       height: 72,
       text: `${letter}    ·    ${label}`,
       href,
@@ -240,42 +314,154 @@ const QUIZ_QUESTIONS: { prompt: string; answers: [string, string, string, string
   },
 ];
 
-function quizJump(pages: Page[], from: number, to: number, kind: PageTransitionKind, durationMs: number) {
+function quizJump(
+  pages: Page[],
+  from: number,
+  to: number,
+  kind: PageTransitionKind,
+  durationMs: number,
+  options?: { direction?: PageTransitionDirection; easing?: PageTransitionEasing },
+) {
   const source = pages[from - 1];
   const dest = pages[to - 1];
   if (!source || !dest) return;
-  source.transitions = [...(source.transitions ?? []), { toId: dest.id, kind, durationMs }];
+  source.transitions = [
+    ...(source.transitions ?? []),
+    {
+      toId: dest.id,
+      kind,
+      durationMs,
+      ...(options?.direction ? { direction: options.direction } : {}),
+      ...(options?.easing ? { easing: options.easing } : {}),
+    },
+  ];
 }
 
 function withQuizTransitions(pages: Page[]): Page[] {
-  quizJump(pages, 1, 2, "slide-left", 480);
-  quizJump(pages, 2, 3, "slide-up", 520);
-  quizJump(pages, 3, 4, "slide-left", 420);
-  quizJump(pages, 4, 5, "slide-left", 420);
-  quizJump(pages, 5, 6, "slide-left", 420);
-  quizJump(pages, 6, 7, "zoom", 560);
-  quizJump(pages, 3, 2, "slide-right", 380);
-  quizJump(pages, 4, 3, "slide-right", 380);
-  quizJump(pages, 5, 4, "slide-right", 380);
-  quizJump(pages, 6, 5, "slide-right", 380);
-  quizJump(pages, 7, 6, "slide-right", 380);
-  for (const from of [2, 3, 4, 5, 6, 7]) quizJump(pages, from, 1, "fade", 420);
+  quizJump(pages, 1, 2, "pitch", 340, { direction: "left", easing: "ease-out" });
+  quizJump(pages, 2, 3, "magic-move", 720, { easing: "ease-in-out" });
+  quizJump(pages, 3, 4, "magic-move", 720, { easing: "ease-in-out" });
+  quizJump(pages, 4, 5, "magic-move", 700, { easing: "ease-in-out" });
+  quizJump(pages, 5, 6, "magic-move", 700, { easing: "ease-in-out" });
+  quizJump(pages, 6, 7, "zoom-in", 560, { easing: "ease-out" });
+  for (const [from, to] of [
+    [3, 2],
+    [4, 3],
+    [5, 4],
+    [6, 5],
+    [7, 6],
+  ] as const) {
+    quizJump(pages, from, to, "push", 400, { direction: "right", easing: "ease-in-out" });
+  }
+  for (const from of [2, 3, 4, 5, 6, 7]) quizJump(pages, from, 1, "fade", 420, { easing: "ease" });
   return pages;
 }
 
+type QuestionFrame = {
+  nav: QuizBox;
+  word: QuizBox;
+  aside: { x: number; y: number; w: number; align: "left" | "right" };
+  board: QuizBox;
+  plate: QuizBox;
+  innings: { x: number; y: number; w: number; h: number; gap: number; on: string; off: string };
+  contentX: number;
+  contentW: number;
+  labelY: number;
+  promptY: number;
+  choices: [number, number, number, number];
+  hintY: number;
+};
+
+const QUESTION_FRAMES: QuestionFrame[] = [
+  {
+    nav: { x: 0, y: 0, w: 1440, h: 64 },
+    word: { x: 28, y: 12, w: 176, h: 40 },
+    aside: { x: 520, y: 22, w: 860, align: "right" },
+    board: { x: 1040, y: 168, w: 340, h: 500, fill: FOREST, radius: 18 },
+    plate: { x: 1168, y: 214, w: 84, h: 72, rotation: 0 },
+    innings: { x: 64, y: 88, w: 150, h: 8, gap: 16, on: GRASS, off: QUIZ_EDGE },
+    contentX: 64,
+    contentW: 940,
+    labelY: 128,
+    promptY: 168,
+    choices: [400, 492, 584, 676],
+    hintY: 764,
+  },
+  {
+    nav: { x: 36, y: 16, w: 1368, h: 52, radius: 14 },
+    word: { x: 1148, y: 22, w: 220, h: 40 },
+    aside: { x: 72, y: 30, w: 700, align: "left" },
+    board: { x: 48, y: 156, w: 320, h: 560, fill: NAVY, radius: 18 },
+    plate: { x: 118, y: 248, w: 150, h: 128, rotation: 14 },
+    innings: { x: 400, y: 792, w: 148, h: 16, gap: 18, on: GOLD, off: "#d9d0c4" },
+    contentX: 400,
+    contentW: 980,
+    labelY: 150,
+    promptY: 190,
+    choices: [360, 448, 536, 624],
+    hintY: 720,
+  },
+  {
+    nav: { x: 0, y: 0, w: 1440, h: 72 },
+    word: { x: 24, y: 16, w: 210, h: 42 },
+    aside: { x: 480, y: 26, w: 900, align: "right" },
+    board: { x: 64, y: 100, w: 1312, h: 128, fill: "#163528", radius: 16 },
+    plate: { x: 1224, y: 116, w: 108, h: 92, rotation: -10 },
+    innings: { x: 96, y: 146, w: 120, h: 22, gap: 16, on: PAPER, off: "#2a4a38" },
+    contentX: 64,
+    contentW: 1280,
+    labelY: 252,
+    promptY: 290,
+    choices: [410, 492, 574, 656],
+    hintY: 748,
+  },
+  {
+    nav: { x: 0, y: 0, w: 1000, h: 68 },
+    word: { x: 28, y: 14, w: 190, h: 40 },
+    aside: { x: 250, y: 24, w: 710, align: "right" },
+    board: { x: 1060, y: 88, w: 320, h: 640, fill: FOREST, radius: 20 },
+    plate: { x: 1150, y: 148, w: 130, h: 112, rotation: 18 },
+    innings: { x: 64, y: 92, w: 150, h: 12, gap: 14, on: GRASS, off: QUIZ_EDGE },
+    contentX: 64,
+    contentW: 960,
+    labelY: 140,
+    promptY: 180,
+    choices: [400, 492, 584, 676],
+    hintY: 764,
+  },
+  {
+    nav: { x: 0, y: 0, w: 1440, h: 58 },
+    word: { x: 1172, y: 9, w: 230, h: 40 },
+    aside: { x: 360, y: 18, w: 780, align: "right" },
+    board: { x: 300, y: 86, w: 840, h: 132, fill: GRASS, radius: 16 },
+    plate: { x: 64, y: 248, w: 180, h: 156, rotation: -16 },
+    innings: { x: 340, y: 128, w: 108, h: 22, gap: 14, on: GOLD, off: "#174e2c" },
+    contentX: 280,
+    contentW: 1100,
+    labelY: 250,
+    promptY: 292,
+    choices: [420, 500, 580, 660],
+    hintY: 748,
+  },
+];
+
 function quizQuestionPage(index: 0 | 1 | 2 | 3 | 4): Page {
   const q = QUIZ_QUESTIONS[index];
+  const frame = QUESTION_FRAMES[index]!;
   const n = (index + 1) as 1 | 2 | 3 | 4 | 5;
   const next = n === 5 ? "#page-7" : `#page-${n + 2}`;
   const letters = ["A", "B", "C", "D"] as const;
-  const ys = [400, 492, 584, 676];
   return page(CREAM, [
-    ...quizNav("How well do you know baseball?"),
-    ...quizProgress(n),
+    ...quizNavBar(frame.nav),
+    ...quizAside("How well do you know baseball?", frame.aside),
+    ...quizBoard(frame.board),
+    ...quizPlate(frame.plate),
+    ...quizInnings(n, frame.innings),
+    ...quizWordmark(frame.word),
     text({
-      x: 80,
-      y: 148,
-      width: 1280,
+      x: frame.contentX,
+      y: frame.labelY,
+      width: frame.contentW,
       text: `Question ${n} of 5`,
       fontFamily: "Oswald",
       fontSize: 18,
@@ -284,9 +470,9 @@ function quizQuestionPage(index: 0 | 1 | 2 | 3 | 4): Page {
       letterSpacing: 1.5,
     }),
     text({
-      x: 80,
-      y: 188,
-      width: 1280,
+      x: frame.contentX,
+      y: frame.promptY,
+      width: frame.contentW,
       text: q.prompt,
       fontFamily: "Playfair Display",
       fontSize: 40,
@@ -295,12 +481,20 @@ function quizQuestionPage(index: 0 | 1 | 2 | 3 | 4): Page {
       lineHeight: 1.2,
     }),
     ...letters.flatMap((letter, i) =>
-      quizChoice(letter, q.answers[i] ?? "", ys[i] ?? 400, next, i === q.correct ? 1 : 0),
+      quizChoice(
+        letter,
+        q.answers[i] ?? "",
+        frame.contentX,
+        frame.choices[i],
+        frame.contentW,
+        next,
+        i === q.correct ? 1 : 0,
+      ),
     ),
     text({
-      x: 80,
-      y: 768,
-      width: 1080,
+      x: frame.contentX,
+      y: frame.hintY,
+      width: Math.min(frame.contentW, 1080),
       text: "Placeholder choices from the rulebook. Any one opens the next page — rewrite the words, and where the button goes.",
       fontFamily: "Inter",
       fontSize: 16,
@@ -309,6 +503,7 @@ function quizQuestionPage(index: 0 | 1 | 2 | 3 | 4): Page {
     ...quizFooter(`#page-${n}`),
   ]);
 }
+
 
 export const TEMPLATES: TemplateDef[] = [
   {
@@ -1217,14 +1412,16 @@ export const TEMPLATES: TemplateDef[] = [
   },
   {
     id: "quiz",
-    name: "Quiz",
+    name: "Ballpark Quiz",
+    description: "Five baseball questions, a live score, and a different page change on every jump.",
     category: "site",
     width: 1440,
     height: 900,
     build: () =>
       withQuizTransitions([
         page(CREAM, [
-          ...quizNav("A five-question quiz"),
+          ...quizNavBar({ x: 0, y: 0, w: 1440, h: 88 }),
+          ...quizAside("A five-question quiz", { x: 520, y: 34, w: 860, align: "right" }),
           shape({ shape: "rect", x: 80, y: 168, width: 72, height: 6, fill: GOLD }),
           text({
             x: 80,
@@ -1269,8 +1466,10 @@ export const TEMPLATES: TemplateDef[] = [
             fontSize: 20,
             cornerRadius: 8,
           }),
-          shape({ shape: "rect", x: 900, y: 140, width: 468, height: 640, fill: FOREST, cornerRadius: 20 }),
-          shape({ shape: "triangle", x: 1268, y: 168, width: 64, height: 56, fill: PAPER }),
+          ...quizBoard({ x: 900, y: 156, w: 468, h: 612, fill: FOREST, radius: 20 }),
+          ...quizPlate({ x: 1304, y: 178, w: 52, h: 46, rotation: 0 }),
+          ...quizInnings(0, { x: 932, y: 704, w: 66, h: 14, gap: 12, on: GOLD, off: "#163528" }),
+          ...quizWordmark({ x: 40, y: 20, w: 250, h: 48 }),
           text({
             x: 940,
             y: 176,
@@ -1282,13 +1481,13 @@ export const TEMPLATES: TemplateDef[] = [
             fill: GOLD,
             letterSpacing: 2,
           }),
-          ...quizPreviewRow("A", "Nine innings", 260),
-          ...quizPreviewRow("B", "Three strikes", 348),
-          ...quizPreviewRow("C", "A home run", 436),
-          ...quizPreviewRow("D", "Home plate", 524),
+          ...quizPreviewRow("A", "Nine innings", 252),
+          ...quizPreviewRow("B", "Three strikes", 332),
+          ...quizPreviewRow("C", "A home run", 412),
+          ...quizPreviewRow("D", "Home plate", 492),
           text({
             x: 940,
-            y: 620,
+            y: 600,
             width: 388,
             text: "Sample card. The buttons on the next pages are the ones people click.",
             fontFamily: "Inter",
@@ -1304,7 +1503,8 @@ export const TEMPLATES: TemplateDef[] = [
         quizQuestionPage(3),
         quizQuestionPage(4),
         page(CREAM, [
-          ...quizNav("Your result"),
+          ...quizNavBar({ x: 0, y: 0, w: 1440, h: 76 }),
+          ...quizAside("Your result", { x: 520, y: 28, w: 860, align: "right" }),
           shape({ shape: "rect", x: 80, y: 188, width: 72, height: 6, fill: GOLD }),
           text({
             x: 80,
@@ -1358,10 +1558,13 @@ export const TEMPLATES: TemplateDef[] = [
             fontSize: 20,
             cornerRadius: 8,
           }),
-          shape({ shape: "rect", x: 900, y: 188, width: 468, height: 532, fill: FOREST, cornerRadius: 20 }),
+          ...quizBoard({ x: 900, y: 168, w: 480, h: 580, fill: FOREST, radius: 20 }),
+          ...quizPlate({ x: 1288, y: 188, w: 72, h: 62, rotation: 8 }),
+          ...quizInnings(5, { x: 948, y: 660, w: 68, h: 14, gap: 12, on: GOLD, off: "#163528" }),
+          ...quizWordmark({ x: 948, y: 200, w: 250, h: 48, fill: FOREST, textFill: GOLD }),
           text({
             x: 940,
-            y: 300,
+            y: 340,
             width: 388,
             text: "{{points}} / 5",
             align: "center",
@@ -1384,7 +1587,7 @@ export const TEMPLATES: TemplateDef[] = [
           }),
           text({
             x: 980,
-            y: 500,
+            y: 530,
             width: 308,
             text: "Change the number, or take it out and write the ending in your own words.",
             align: "center",

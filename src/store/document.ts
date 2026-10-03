@@ -35,6 +35,8 @@ import type {
   Fill,
   FontFamily,
   Page,
+  PageTransitionDirection,
+  PageTransitionEasing,
   PageTransitionKind,
   ShapeKind,
   SidebarTab,
@@ -215,7 +217,13 @@ export type DocumentState = {
   setPageIndex: (index: number) => void;
   reorderPages: (from: number, to: number) => void;
   applyTemplateToPage: (templateId: string) => void;
-  setPageTransition: (fromId: string, toId: string, kind: PageTransitionKind, durationMs: number) => void;
+  setPageTransition: (
+    fromId: string,
+    toId: string,
+    kind: PageTransitionKind,
+    durationMs: number,
+    options?: { direction?: PageTransitionDirection; easing?: PageTransitionEasing },
+  ) => void;
   clearPageTransition: (fromId: string, toId: string) => void;
 };
 
@@ -1095,13 +1103,24 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       }
     },
 
-    setPageTransition: (fromId, toId, kind, durationMs) => {
+    setPageTransition: (fromId, toId, kind, durationMs, options) => {
       const design = currentDesign();
       if (!design || fromId === toId) return;
       if (!design.pages.some((p) => p.id === toId)) return;
       pushHistory();
       const pages = design.pages.map((page) =>
-        page.id === fromId ? pageWithTransitions(page, upsertPageTransition(page.transitions, { toId, kind, durationMs })) : page,
+        page.id === fromId
+          ? pageWithTransitions(
+              page,
+              upsertPageTransition(page.transitions, {
+                toId,
+                kind,
+                durationMs,
+                direction: options?.direction,
+                easing: options?.easing,
+              }),
+            )
+          : page,
       );
       commit({ ...design, pages });
     },

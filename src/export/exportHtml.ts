@@ -1,7 +1,8 @@
 import { fontOf } from "../fonts/catalog";
 import { cssFill, cssImageFilter, cropObjectPosition } from "../lib/fill";
 import { sanitizeHref } from "../lib/href";
-import { clampTransitionMs, isPageTransitionKind } from "../lib/pageTransitions";
+import pageRuntimeSource from "./pageRuntime.js?raw";
+import { cssTiming, resolvePageTransition } from "../lib/pageTransitions";
 import { stickerById } from "../library/stickers";
 import { getAsset } from "../persist/db";
 import type { ButtonObject, CanvasObject, Design, ImageObject, Page, ShapeObject, StickerObject, TextObject } from "../types";
@@ -73,8 +74,15 @@ export async function buildHtml(design: Design, pageIndex: number | "all"): Prom
       position: absolute;
       transform-origin: top left;
     }
+    .mm-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      pointer-events: none;
+      overflow: hidden;
+    }
     @media (prefers-reduced-motion: reduce) {
-      .page { transition: none !important; }
+      .page, .mm-layer { transition: none !important; animation: none !important; }
     }
   </style>
 </head>
@@ -88,184 +96,28 @@ ${pageRuntime(rulesJson)}
 `;
 }
 
-function transitionRules(pages: { index: number; page: Page }[]): Record<string, { kind: string; ms: number }> {
+function transitionRules(pages: { index: number; page: Page }[]): Record<string, { kind: string; ms: number; dir: string; ease: string }> {
   const numById = new Map(pages.map(({ index, page }) => [page.id, index + 1]));
-  const rules: Record<string, { kind: string; ms: number }> = {};
+  const rules: Record<string, { kind: string; ms: number; dir: string; ease: string }> = {};
   for (const { index, page } of pages) {
     for (const jump of page.transitions ?? []) {
-      if (!isPageTransitionKind(jump.kind)) continue;
+      const resolved = resolvePageTransition(jump);
+      if (!resolved) continue;
       const to = numById.get(jump.toId);
       if (to == null) continue;
-      rules[`${index + 1}>${to}`] = { kind: jump.kind, ms: clampTransitionMs(jump.durationMs) };
+      rules[`${index + 1}>${to}`] = {
+        kind: resolved.kind,
+        ms: resolved.durationMs,
+        dir: resolved.direction,
+        ease: cssTiming(resolved.easing),
+      };
     }
   }
   return rules;
 }
 
 function pageRuntime(rulesJson: string): string {
-  return `    (function () {
-      var pages = document.querySelectorAll(".page");
-      if (!pages.length) return;
-      var rules = ${rulesJson};
-      var current = null;
-      var token = 0;
-      var tally = {};
-      function paintPoints() {
-        var n = 0;
-        for (var k in tally) n += Number(tally[k]) || 0;
-        var label = String(n);
-        var nodes = document.querySelectorAll("[data-points-slot]");
-        for (var i = 0; i < nodes.length; i++) {
-          var tmpl = nodes[i].getAttribute("data-points-slot") || "";
-          nodes[i].textContent = tmpl.split("{{points}}").join(label);
-        }
-      }
-      function reduced() {
-        return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      }
-      function num(el) {
-        var m = /^page-(\\d+)$/.exec(el.id || "");
-        return m ? m[1] : "";
-      }
-      function clearMotion(el) {
-        el.style.transition = "";
-        el.style.transform = "";
-        el.style.opacity = "";
-        el.style.visibility = "";
-        el.style.pointerEvents = "";
-        el.style.zIndex = "";
-      }
-      function mark(target) {
-        for (var i = 0; i < pages.length; i++) {
-          var on = pages[i] === target;
-          pages[i].classList.toggle("is-on", on);
-          if (on) pages[i].removeAttribute("aria-hidden");
-          else pages[i].setAttribute("aria-hidden", "true");
-        }
-        current = target;
-      }
-      function settle(target) {
-        mark(target);
-        for (var i = 0; i < pages.length; i++) clearMotion(pages[i]);
-      }
-      function snap(target) {
-        for (var i = 0; i < pages.length; i++) pages[i].style.transition = "none";
-        mark(target);
-        for (var j = 0; j < pages.length; j++) {
-          pages[j].style.transform = "";
-          pages[j].style.opacity = "";
-          pages[j].style.visibility = "";
-          pages[j].style.pointerEvents = "";
-          pages[j].style.zIndex = "";
-        }
-        requestAnimationFrame(function () {
-          for (var k = 0; k < pages.length; k++) {
-            if (pages[k].style.transition === "none") pages[k].style.transition = "";
-          }
-        });
-      }
-      function enterOf(kind) {
-        if (kind === "slide-left") return "translateX(100%)";
-        if (kind === "slide-right") return "translateX(-100%)";
-        if (kind === "slide-up") return "translateY(100%)";
-        if (kind === "slide-down") return "translateY(-100%)";
-        if (kind === "zoom") return "scale(0.88)";
-        if (kind === "flip") return "perspective(1400px) rotateY(-75deg)";
-        return "none";
-      }
-      function exitOf(kind) {
-        if (kind === "slide-left") return "translateX(-100%)";
-        if (kind === "slide-right") return "translateX(100%)";
-        if (kind === "slide-up") return "translateY(-100%)";
-        if (kind === "slide-down") return "translateY(100%)";
-        if (kind === "zoom") return "scale(1.05)";
-        if (kind === "flip") return "perspective(1400px) rotateY(75deg)";
-        return "none";
-      }
-      function play(from, to, rule) {
-        var my = token;
-        var kind = rule.kind;
-        var ms = Math.max(0, Math.min(2000, rule.ms | 0));
-        var fade = kind === "fade" || kind === "zoom" || kind === "flip";
-        for (var i = 0; i < pages.length; i++) {
-          if (pages[i] !== from && pages[i] !== to) {
-            pages[i].classList.remove("is-on");
-            pages[i].setAttribute("aria-hidden", "true");
-            clearMotion(pages[i]);
-          }
-        }
-        to.style.transition = "none";
-        to.style.visibility = "visible";
-        to.style.pointerEvents = "none";
-        to.style.opacity = fade ? "0" : "1";
-        to.style.transform = enterOf(kind);
-        to.style.zIndex = "2";
-        from.style.transition = "none";
-        from.style.visibility = "visible";
-        from.style.pointerEvents = "none";
-        from.style.opacity = "1";
-        from.style.transform = "none";
-        from.style.zIndex = "1";
-        to.classList.add("is-on");
-        to.removeAttribute("aria-hidden");
-        from.classList.add("is-on");
-        void to.offsetWidth;
-        var ease = "cubic-bezier(.22,.72,.2,1)";
-        var spec = "transform " + ms + "ms " + ease + ", opacity " + ms + "ms ease";
-        to.style.transition = spec;
-        from.style.transition = spec;
-        to.style.opacity = "1";
-        to.style.transform = "none";
-        from.style.transform = exitOf(kind);
-        from.style.opacity = fade ? "0" : "1";
-        current = to;
-        window.setTimeout(function () {
-          if (my !== token) return;
-          settle(to);
-        }, ms + 60);
-      }
-      function show() {
-        var id = (location.hash || "").replace(/^#/, "");
-        var target = id ? document.getElementById(id) : null;
-        if (!target || !target.classList.contains("page")) target = pages[0];
-        if (target === pages[0]) tally = {};
-        paintPoints();
-        var from = current;
-        token++;
-        if (!from || from === target || reduced()) {
-          settle(target);
-          return;
-        }
-        var rule = rules[num(from) + ">" + num(target)];
-        if (!rule) {
-          settle(target);
-          return;
-        }
-        if (rule.kind === "none" || !(rule.ms > 0)) {
-          snap(target);
-          return;
-        }
-        play(from, target, rule);
-      }
-      document.addEventListener("click", function (e) {
-        var a = e.target && e.target.closest ? e.target.closest("a") : null;
-        if (!a) return;
-        var href = a.getAttribute("href") || "";
-        if (href.charAt(0) !== "#") return;
-        var next = document.getElementById(href.slice(1));
-        if (!next || !next.classList.contains("page")) return;
-        e.preventDefault();
-        var raw = a.getAttribute("data-points");
-        if (raw != null && raw !== "" && current) {
-          var pts = Number(raw);
-          if (pts === pts) tally[num(current)] = pts;
-        }
-        if (location.hash !== href) location.hash = href;
-        else show();
-      });
-      window.addEventListener("hashchange", show);
-      show();
-    })();`;
+  return pageRuntimeSource.replace("__RULES_JSON__", () => rulesJson);
 }
 
 export async function exportHtml(design: Design, pageIndex: number | "all"): Promise<void> {
@@ -321,6 +173,24 @@ function renderObject(design: Design, obj: CanvasObject, assets: Map<string, str
   return renderShape(design, obj);
 }
 
+function moveAttrs(obj: CanvasObject): string {
+  const rot = ` data-rot="${Number.isFinite(obj.rotation) ? obj.rotation : 0}"`;
+  const name = obj.name?.trim();
+  if (name) return ` data-mm="${escapeAttr(name)}"${rot}`;
+  const auto = autoMoveKey(obj);
+  return auto ? ` data-mm-auto="${escapeAttr(auto)}"${rot}` : rot;
+}
+
+function autoMoveKey(obj: CanvasObject): string | null {
+  if (obj.type === "text" || obj.type === "button") {
+    const text = obj.text.replace(/\s+/g, " ").trim();
+    return text ? `${obj.type}:${text}` : null;
+  }
+  if (obj.type === "image") return `image:${obj.assetId}`;
+  if (obj.type === "sticker") return `sticker:${obj.sticker}`;
+  return null;
+}
+
 function renderText(design: Design, obj: TextObject): string {
   const style = [
     box(obj, design.width, design.height, false),
@@ -340,7 +210,7 @@ function renderText(design: Design, obj: TextObject): string {
   const scored = obj.text.includes("{{points}}");
   const shown = scored ? obj.text.split("{{points}}").join("0") : obj.text;
   const slot = scored ? ` data-points-slot="${escapeAttr(obj.text)}"` : "";
-  return `<div class="el"${slot} style="${style}">${escapeHtml(shown)}</div>`;
+  return `<div class="el"${moveAttrs(obj)}${slot} style="${style}">${escapeHtml(shown)}</div>`;
 }
 
 function renderImage(design: Design, obj: ImageObject, assets: Map<string, string>): string {
@@ -351,7 +221,7 @@ function renderImage(design: Design, obj: ImageObject, assets: Map<string, strin
   if (pos) extras.push(`object-position:${pos}`);
   const filter = cssImageFilter(obj.filter);
   if (filter) extras.push(`filter:${filter}`);
-  return `<img class="el" alt="" src="${escapeAttr(src)}" style="${box(obj, design.width, design.height, true)}${extras.join(";")}" />`;
+  return `<img class="el"${moveAttrs(obj)} alt="" src="${escapeAttr(src)}" style="${box(obj, design.width, design.height, true)}${extras.join(";")}" />`;
 }
 
 function renderButton(design: Design, obj: ButtonObject): string {
@@ -375,10 +245,10 @@ function renderButton(design: Design, obj: ButtonObject): string {
   const label = escapeHtml(obj.text);
   const points =
     typeof obj.points === "number" && Number.isFinite(obj.points) ? ` data-points="${obj.points}"` : "";
-  if (!href) return `<span class="el"${points} style="${style}">${label}</span>`;
+  if (!href) return `<span class="el"${moveAttrs(obj)}${points} style="${style}">${label}</span>`;
   const extra =
     href.startsWith("#") || /^(mailto:|tel:)/i.test(href) ? "" : ` target="_blank" rel="noopener noreferrer"`;
-  return `<a class="el" href="${escapeAttr(href)}"${extra}${points} style="${style}">${label}</a>`;
+  return `<a class="el"${moveAttrs(obj)} href="${escapeAttr(href)}"${extra}${points} style="${style}">${label}</a>`;
 }
 
 function renderShape(design: Design, obj: ShapeObject): string {
@@ -388,14 +258,14 @@ function renderShape(design: Design, obj: ShapeObject): string {
   else if (obj.shape === "triangle") extras.push("clip-path:polygon(50% 0,100% 100%,0 100%)");
   else extras.push(`border-radius:${cqw(obj.cornerRadius, design.width)}`);
   if (obj.strokeWidth) extras.push(`border:${obj.strokeWidth}px solid ${escapeAttr(obj.stroke)}`);
-  return `<div class="el" style="${box(obj, design.width, design.height, true)}${extras.join(";")}"></div>`;
+  return `<div class="el"${moveAttrs(obj)} style="${box(obj, design.width, design.height, true)}${extras.join(";")}"></div>`;
 }
 
 function renderSticker(design: Design, obj: StickerObject): string {
   const def = stickerById(obj.sticker);
   if (!def) return "";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${def.view} ${def.view}" width="100%" height="100%"><path d="${escapeAttr(def.path)}" fill="${escapeAttr(obj.fill)}" stroke="${escapeAttr(obj.fill)}" stroke-width="0.6"/></svg>`;
-  return `<div class="el" style="${box(obj, design.width, design.height, true)}">${svg}</div>`;
+  return `<div class="el"${moveAttrs(obj)} style="${box(obj, design.width, design.height, true)}">${svg}</div>`;
 }
 
 function box(
