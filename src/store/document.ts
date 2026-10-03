@@ -724,7 +724,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       if (record) pushHistory();
       withPage((page) => ({
         ...page,
-        objects: page.objects.map((obj) => (obj.id === id ? ({ ...obj, ...patch } as CanvasObject) : obj)),
+        objects: page.objects.map((obj) => {
+          if (obj.id !== id) return obj;
+          const next = { ...obj, ...patch } as CanvasObject;
+          const raw = patch as Record<string, unknown>;
+          for (const key of Object.keys(raw)) {
+            if (raw[key] === undefined) delete (next as Record<string, unknown>)[key];
+          }
+          return next;
+        }),
       }));
     },
 

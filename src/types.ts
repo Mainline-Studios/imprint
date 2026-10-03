@@ -139,6 +139,8 @@ export type ButtonObject = {
   fontWeight: FontWeight;
   cornerRadius: number;
   opacity: number;
+  /** Optional. When the button is clicked, replaces this page’s score. Leave unset to ignore it. */
+  points?: number;
 } & ObjectFlags;
 
 export type StickerObject = {

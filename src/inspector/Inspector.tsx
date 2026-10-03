@@ -549,6 +549,29 @@ function ButtonFields({ obj }: { obj: ButtonObject }) {
       {kind === "page" && design && pageIdx != null && pageIdx !== fromIndex && !isTshirtSize(design.width, design.height) ? (
         <PagePairFields design={design} fromIndex={fromIndex} toIndex={pageIdx} />
       ) : null}
+      <Field label="Points">
+        <input
+          type="number"
+          min={0}
+          max={5}
+          placeholder="Optional"
+          value={obj.points ?? ""}
+          onChange={(e) => {
+            const raw = e.target.value.trim();
+            if (!raw) {
+              useDocumentStore.getState().updateObject(obj.id, { points: undefined });
+              return;
+            }
+            const n = Math.round(Number(raw));
+            if (!Number.isFinite(n)) return;
+            useDocumentStore.getState().updateObject(obj.id, { points: Math.max(0, Math.min(5, n)) });
+          }}
+        />
+      </Field>
+      <p className="hint">
+        Optional. Leave blank for a normal button. A number (0–5) replaces this page’s score when the button is clicked.
+        Write {"{{points}}"} in any text to show the total.
+      </p>
       <p className="hint">
         {kind === "mail"
           ? "Opens their mail app. Export → Open site to try it, or download the HTML."

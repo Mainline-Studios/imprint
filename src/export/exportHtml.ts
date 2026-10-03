@@ -109,6 +109,17 @@ function pageRuntime(rulesJson: string): string {
       var rules = ${rulesJson};
       var current = null;
       var token = 0;
+      var tally = {};
+      function paintPoints() {
+        var n = 0;
+        for (var k in tally) n += Number(tally[k]) || 0;
+        var label = String(n);
+        var nodes = document.querySelectorAll("[data-points-slot]");
+        for (var i = 0; i < nodes.length; i++) {
+          var tmpl = nodes[i].getAttribute("data-points-slot") || "";
+          nodes[i].textContent = tmpl.split("{{points}}").join(label);
+        }
+      }
       function reduced() {
         return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       }
@@ -217,6 +228,8 @@ function pageRuntime(rulesJson: string): string {
         var id = (location.hash || "").replace(/^#/, "");
         var target = id ? document.getElementById(id) : null;
         if (!target || !target.classList.contains("page")) target = pages[0];
+        if (target === pages[0]) tally = {};
+        paintPoints();
         var from = current;
         token++;
         if (!from || from === target || reduced()) {
@@ -242,6 +255,11 @@ function pageRuntime(rulesJson: string): string {
         var next = document.getElementById(href.slice(1));
         if (!next || !next.classList.contains("page")) return;
         e.preventDefault();
+        var raw = a.getAttribute("data-points");
+        if (raw != null && raw !== "" && current) {
+          var pts = Number(raw);
+          if (pts === pts) tally[num(current)] = pts;
+        }
         if (location.hash !== href) location.hash = href;
         else show();
       });
@@ -319,7 +337,10 @@ function renderText(design: Design, obj: TextObject): string {
   ]
     .filter(Boolean)
     .join(";");
-  return `<div class="el" style="${style}">${escapeHtml(obj.text)}</div>`;
+  const scored = obj.text.includes("{{points}}");
+  const shown = scored ? obj.text.split("{{points}}").join("0") : obj.text;
+  const slot = scored ? ` data-points-slot="${escapeAttr(obj.text)}"` : "";
+  return `<div class="el"${slot} style="${style}">${escapeHtml(shown)}</div>`;
 }
 
 function renderImage(design: Design, obj: ImageObject, assets: Map<string, string>): string {
@@ -352,10 +373,12 @@ function renderButton(design: Design, obj: ButtonObject): string {
     "padding:0 3%",
   ].join(";");
   const label = escapeHtml(obj.text);
-  if (!href) return `<span class="el" style="${style}">${label}</span>`;
+  const points =
+    typeof obj.points === "number" && Number.isFinite(obj.points) ? ` data-points="${obj.points}"` : "";
+  if (!href) return `<span class="el"${points} style="${style}">${label}</span>`;
   const extra =
     href.startsWith("#") || /^(mailto:|tel:)/i.test(href) ? "" : ` target="_blank" rel="noopener noreferrer"`;
-  return `<a class="el" href="${escapeAttr(href)}"${extra} style="${style}">${label}</a>`;
+  return `<a class="el" href="${escapeAttr(href)}"${extra}${points} style="${style}">${label}</a>`;
 }
 
 function renderShape(design: Design, obj: ShapeObject): string {
