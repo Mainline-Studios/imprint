@@ -9,6 +9,7 @@ import { shirtViewOf, shirtViewPhrase } from "../lib/shirt";
 import { normalizedCrop } from "../lib/fill";
 import { TextEffectsPanel } from "./TextEffectsPanel";
 import { PageChangesPanel, PagePairFields } from "./PageChanges";
+import { PointsChip, VariableEditor } from "./VariableField";
 import type { ButtonObject, CanvasObject, FontWeight, ImageObject, ShapeObject, StickerObject, TextAlign, TextObject } from "../types";
 
 export function Inspector() {
@@ -141,12 +142,9 @@ function TextFields({ obj, grouping }: { obj: TextObject; grouping: boolean }) {
     <>
       <h3>Text</h3>
       <Field label="Content">
-        <textarea
-          rows={3}
+        <VariableEditor
           value={obj.text}
-          onChange={(e) =>
-            useDocumentStore.getState().updateObject(obj.id, { text: e.target.value }, { record: !grouping })
-          }
+          onChange={(text) => useDocumentStore.getState().updateObject(obj.id, { text }, { record: !grouping })}
           onFocus={() => useDocumentStore.getState().beginHistory()}
           onBlur={() => useDocumentStore.getState().endHistory()}
         />
@@ -569,8 +567,8 @@ function ButtonFields({ obj }: { obj: ButtonObject }) {
         />
       </Field>
       <p className="hint">
-        Optional. Leave blank for a normal button. A number (0–5) replaces this page’s score when the button is clicked.
-        Write {"{{points}}"} in any text to show the total.
+        Optional. Leave blank for a normal button. A number from 0 to 5 replaces this page’s score. Show the total by
+        adding the <PointsChip /> box in any text.
       </p>
       <p className="hint">
         {kind === "mail"

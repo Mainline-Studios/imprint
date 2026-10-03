@@ -2062,6 +2062,73 @@ button {
   z-index: 5;
 }
 
+.var-editor {
+  min-height: 58px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.text-overlay.var-editor {
+  min-height: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.var-chip,
+.var-insert {
+  display: inline-block;
+  border: 0.08em solid currentColor;
+  border-radius: 0.28em;
+  padding: 0 0.32em;
+  margin: 0 0.08em;
+  line-height: 1.2;
+  font-weight: 600;
+  text-transform: none;
+  vertical-align: baseline;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.var-editor .var-chip,
+.var-insert {
+  border-width: 1px;
+  border-radius: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.text-overlay .var-chip {
+  font-size: 0.72em;
+  border-width: 0.08em;
+  padding: 0.08em 0.4em;
+}
+
+.var-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.var-insert {
+  cursor: pointer;
+  background: #fff;
+  color: var(--ink);
+}
+
+.var-tools .hint {
+  margin: 0;
+}
+
 .inspector {
   grid-column: 3;
   grid-row: 2;

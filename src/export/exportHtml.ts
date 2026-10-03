@@ -73,6 +73,15 @@ export async function buildHtml(design: Design, pageIndex: number | "all"): Prom
       position: absolute;
       transform-origin: top left;
     }
+    .var-value {
+      display: inline-block;
+      border: 0.08em solid currentColor;
+      border-radius: 0.28em;
+      padding: 0 0.32em;
+      margin: 0 0.08em;
+      line-height: 1.15;
+      vertical-align: baseline;
+    }
     @media (prefers-reduced-motion: reduce) {
       .page { transition: none !important; }
     }
@@ -117,7 +126,17 @@ function pageRuntime(rulesJson: string): string {
         var nodes = document.querySelectorAll("[data-points-slot]");
         for (var i = 0; i < nodes.length; i++) {
           var tmpl = nodes[i].getAttribute("data-points-slot") || "";
-          nodes[i].textContent = tmpl.split("{{points}}").join(label);
+          var bits = tmpl.split("{{points}}");
+          nodes[i].textContent = "";
+          for (var b = 0; b < bits.length; b++) {
+            nodes[i].appendChild(document.createTextNode(bits[b]));
+            if (b < bits.length - 1) {
+              var chip = document.createElement("span");
+              chip.className = "var-value";
+              chip.textContent = label;
+              nodes[i].appendChild(chip);
+            }
+          }
         }
       }
       function reduced() {
@@ -338,9 +357,17 @@ function renderText(design: Design, obj: TextObject): string {
     .filter(Boolean)
     .join(";");
   const scored = obj.text.includes("{{points}}");
-  const shown = scored ? obj.text.split("{{points}}").join("0") : obj.text;
+  const body = scored
+    ? obj.text
+        .split("{{points}}")
+        .map((bit, index, all) => {
+          const chunk = escapeHtml(bit);
+          return index < all.length - 1 ? `${chunk}<span class="var-value">0</span>` : chunk;
+        })
+        .join("")
+    : escapeHtml(obj.text);
   const slot = scored ? ` data-points-slot="${escapeAttr(obj.text)}"` : "";
-  return `<div class="el"${slot} style="${style}">${escapeHtml(shown)}</div>`;
+  return `<div class="el"${slot} style="${style}">${body}</div>`;
 }
 
 function renderImage(design: Design, obj: ImageObject, assets: Map<string, string>): string {
