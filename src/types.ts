@@ -62,6 +62,8 @@ export type ObjectFlags = {
   locked?: boolean;
   groupId?: string;
   visible?: boolean;
+  /** Magic Move match key. The first object with this name on each page is the one that glides. */
+  name?: string;
 };
 
 export type TextObject = {
@@ -168,21 +170,47 @@ export type ShirtMeta = {
 export const PAGE_TRANSITION_KINDS = [
   "none",
   "fade",
+  "slide",
+  "push",
+  "cover",
+  "reveal",
+  "zoom-in",
+  "zoom-out",
+  "flip",
+  "cube",
+  "dissolve",
+  "wipe",
+  "spring",
+  "pitch",
+  "magic-move",
+] as const;
+
+export type PageTransitionKind = (typeof PAGE_TRANSITION_KINDS)[number];
+
+/** Older files still store these. They are read as the newer kind plus a direction. */
+export const LEGACY_PAGE_TRANSITION_KINDS = [
   "slide-left",
   "slide-right",
   "slide-up",
   "slide-down",
   "zoom",
-  "flip",
 ] as const;
 
-export type PageTransitionKind = (typeof PAGE_TRANSITION_KINDS)[number];
+export type LegacyPageTransitionKind = (typeof LEGACY_PAGE_TRANSITION_KINDS)[number];
+
+export const PAGE_TRANSITION_DIRECTIONS = ["left", "right", "up", "down"] as const;
+export type PageTransitionDirection = (typeof PAGE_TRANSITION_DIRECTIONS)[number];
+
+export const PAGE_TRANSITION_EASINGS = ["ease", "ease-in", "ease-out", "ease-in-out", "linear", "spring"] as const;
+export type PageTransitionEasing = (typeof PAGE_TRANSITION_EASINGS)[number];
 
 /** Animation for one jump away from the page that stores it. */
 export type PageTransition = {
   toId: string;
-  kind: PageTransitionKind;
+  kind: PageTransitionKind | LegacyPageTransitionKind;
   durationMs: number;
+  direction?: PageTransitionDirection;
+  easing?: PageTransitionEasing;
 };
 
 export type Page = {
@@ -248,6 +276,7 @@ export type SizePreset = {
 export type TemplateDef = {
   id: string;
   name: string;
+  description?: string;
   category: "social" | "presentation" | "print" | "site" | "email";
   width: number;
   height: number;

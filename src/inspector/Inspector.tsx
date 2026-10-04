@@ -105,6 +105,7 @@ export function Inspector() {
         </>
       )}
 
+      {one && <MoveNameField obj={one} />}
       {one?.type === "text" && <TextFields obj={one} grouping={grouping} />}
       {one?.type === "shape" && <ShapeFields obj={one} />}
       {one?.type === "image" && <ImageFields obj={one} />}
@@ -128,6 +129,31 @@ export function Inspector() {
         </>
       )}
     </aside>
+  );
+}
+
+function MoveNameField({ obj }: { obj: CanvasObject }) {
+  return (
+    <>
+      <h3>Object</h3>
+      <Field label="Magic Move name">
+        <input
+          type="text"
+          value={obj.name ?? ""}
+          placeholder="home-plate"
+          onChange={(e) => {
+            const name = e.target.value.trim();
+            useDocumentStore.getState().updateObject(obj.id, { name: name || undefined }, { record: false });
+          }}
+          onFocus={() => useDocumentStore.getState().beginHistory()}
+          onBlur={() => useDocumentStore.getState().endHistory()}
+        />
+      </Field>
+      <p className="hint">
+        Match key for Magic Move. The first object with this name on each page glides between those pages. Shapes match
+        only when they have a name.
+      </p>
+    </>
   );
 }
 
