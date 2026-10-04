@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { miniTextDecor } from "./textEffects";
 import { cssFill, cssImageFilter, cropObjectPosition, isLinearFill } from "../lib/fill";
 import { stickerById } from "../library/stickers";
+import { splitVariables } from "../lib/variables";
 import { previewTextStyle } from "../text/effects";
 import type { CanvasObject, Fill } from "../types";
 
@@ -80,7 +81,15 @@ export function MiniPreview({
           if (obj.type === "text") {
             return (
               <div key={obj.id} style={{ ...style, ...previewTextStyle(obj), ...miniTextDecor(obj) }}>
-                {obj.text}
+                {splitVariables(obj.text).map((part, index) =>
+                  part.kind === "var" ? (
+                    <span key={index} className="var-chip">
+                      Points
+                    </span>
+                  ) : (
+                    <span key={index}>{part.text}</span>
+                  ),
+                )}
               </div>
             );
           }

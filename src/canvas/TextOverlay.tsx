@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type Konva from "konva";
 import { fontOf } from "../fonts/catalog";
+import { hasPointsToken } from "../lib/variables";
+import { VariableEditor } from "../inspector/VariableField";
 import { lineHeightOf, overlayTextStyle } from "../text/effects";
 import { useDocumentStore } from "../store/document";
 import type { ButtonObject, TextObject } from "../types";
@@ -15,6 +17,7 @@ export function TextOverlay({
   container: HTMLElement | null;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const chipRef = useRef<HTMLDivElement>(null);
   const original = useRef(obj.text);
   const selectAll = useDocumentStore((s) => s.editingSelectAll);
 
@@ -27,15 +30,16 @@ export function TextOverlay({
   }, [obj.id]);
 
   useLayoutEffect(() => {
-    const el = ref.current;
+    const el = ref.current ?? chipRef.current;
     if (!el) return;
     el.focus();
+    if (!(el instanceof HTMLTextAreaElement)) return;
     if (selectAll) el.select();
     else el.setSelectionRange(el.value.length, el.value.length);
   }, [obj.id, selectAll]);
 
   useEffect(() => {
-    const el = ref.current;
+    const el = ref.current ?? chipRef.current;
     const node = stage?.findOne("#" + obj.id);
     if (!el || !node || !container) return;
     const box = node.getClientRect({ skipTransform: false });
@@ -61,6 +65,32 @@ export function TextOverlay({
           lineHeight: 1.2,
         }
       : overlayTextStyle(obj, zoom);
+
+  if (obj.type === "text" && hasPointsToken(obj.text)) {
+    return (
+      <VariableEditor
+        value={obj.text}
+        showInsert={false}
+        inputRef={chipRef}
+        className="text-overlay"
+        style={style}
+        onPointerDown={(e) => e.stopPropagation()}
+        onBlur={() => close()}
+        onChange={(text) => useDocumentStore.getState().updateObject(obj.id, { text }, { record: false })}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            close();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            useDocumentStore.getState().updateObject(obj.id, { text: original.current });
+            close();
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <textarea
