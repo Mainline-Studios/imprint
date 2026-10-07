@@ -20,3 +20,5 @@ If the Google popup says the provider is disabled, in the [Firebase console](htt
 Also add these **Authorized domains** (hostname only, no `https://` or port): `localhost` and `mainline-studios.github.io`.
 
 Firebase project id: `imprint-designs` (display name: Imprint Designs). Sign-in domain: `imprint-designs.firebaseapp.com`. Firestore database id: `imprint`.
+## Source
+Yeah, it's open source. Duh.
